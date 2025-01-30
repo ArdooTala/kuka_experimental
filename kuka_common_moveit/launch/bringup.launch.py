@@ -347,7 +347,7 @@ def generate_launch_description():
     )
 
     # Spawn controllers
-    6dof_controllers_file = PathJoinSubstitution(
+    temp_6dof_controllers_file = PathJoinSubstitution(
         [FindPackageShare("kuka_ros2_control_support"), "config", "6dof_controllers.yaml"]
     )
     load_and_activate_controllers = []
@@ -356,10 +356,10 @@ def generate_launch_description():
             ExecuteProcess(
                 cmd=[[
                     f"ros2 run controller_manager spawner {controller} -c ",
-                    controller_manager_name,
+                    "controller_manager",
                     " -p ",
-                    6dof_controllers_file,
-                ]]
+                    temp_6dof_controllers_file,
+                ]],
                 shell=True,
                 output="screen",
                 condition=IfCondition(use_mock_hardware),
