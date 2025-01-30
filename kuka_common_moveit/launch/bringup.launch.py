@@ -347,11 +347,19 @@ def generate_launch_description():
     )
 
     # Spawn controllers
+    6dof_controllers_file = PathJoinSubstitution(
+        [FindPackageShare("kuka_ros2_control_support"), "config", "6dof_controllers.yaml"]
+    )
     load_and_activate_controllers = []
     for controller in ["position_trajectory_controller", "joint_state_broadcaster"]:
         load_and_activate_controllers += [
             ExecuteProcess(
-                cmd=[f"ros2 run controller_manager spawner {controller} -c controller_manager -p /home/oguz/maurobot_ws/install/kuka_ros2_control_support/share/kuka_ros2_control_support/config/6dof_controllers.yaml"],
+                cmd=[[
+                    f"ros2 run controller_manager spawner {controller} -c ",
+                    controller_manager_name,
+                    " -p ",
+                    6dof_controllers_file,
+                ]]
                 shell=True,
                 output="screen",
                 condition=IfCondition(use_mock_hardware),

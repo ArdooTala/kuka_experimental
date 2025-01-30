@@ -340,7 +340,10 @@ def generate_launch_description():
     for controller in ["position_trajectory_controller", "joint_state_broadcaster"]:
         load_and_activate_controllers += [
             ExecuteProcess(
-                cmd=[f"ros2 run controller_manager spawner {controller} -c {controller_manager_name}"],
+                cmd=[[
+                    f"ros2 run controller_manager spawner {controller} -c ",
+                    controller_manager_name,
+                ]],
                 shell=True,
                 output="screen",
                 condition=IfCondition(activate_ros2_control),
