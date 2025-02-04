@@ -36,7 +36,7 @@
           <plugin>gazebo_ros2_control/GazeboSystem</plugin>
         </xacro:if>
         <xacro:if value="${sim_gazebo}">
-          <plugin>ign_ros2_control/IgnitionSystem</plugin>
+          <plugin>gz_ros2_control/GazeboSimSystem</plugin>
         </xacro:if>
         <xacro:if value="${use_eki_communication}">
           <plugin>kuka_eki_hw_interface/KukaEkiHardwareInterface</plugin>
@@ -134,8 +134,9 @@
       <gazebo reference="world">
       </gazebo>
       <gazebo>
-        <plugin filename="libign_ros2_control-system.so" name="ign_ros2_control::IgnitionROS2ControlPlugin">
-          <parameters>${simulation_controllers}</parameters>
+        <plugin filename="libgz_ros2_control-system.so" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+          <!-- <parameters>${simulation_controllers}</parameters> -->
+          <parameters>$(find kukita_robot_description)/config/ros2_controllers.yaml</parameters>
           <controller_manager_node_name>${prefix}controller_manager</controller_manager_node_name>
         </plugin>
       </gazebo>
