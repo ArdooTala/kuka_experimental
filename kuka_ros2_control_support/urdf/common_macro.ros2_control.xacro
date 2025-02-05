@@ -138,6 +138,7 @@
           <!-- <parameters>${simulation_controllers}</parameters> -->
           <parameters>$(find kukita_robot_description)/config/ros2_controllers.yaml</parameters>
           <controller_manager_node_name>${prefix}controller_manager</controller_manager_node_name>
+          <position_proportional_gain>1</position_proportional_gain>
         </plugin>
       </gazebo>
     </xacro:if>
