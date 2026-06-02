@@ -34,8 +34,7 @@ void rbt::RobotState::from_xml(XmlReader &reader)
                                  element->FloatAttribute("A3"),
                                  element->FloatAttribute("A4"),
                                  element->FloatAttribute("A5"),
-                                 element->FloatAttribute("A6"),
-                                 element->FloatAttribute("A7")};
+                                 element->FloatAttribute("A6")};
 
     element = reader.get_element("Position/Cartesian");
     position_cartesian = PoseCartesian{element->FloatAttribute("X"),

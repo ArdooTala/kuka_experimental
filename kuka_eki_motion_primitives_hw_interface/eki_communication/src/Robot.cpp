@@ -173,8 +173,7 @@ bool rbt::Robot::robot_in_movement()
     PoseJoints &v = state_.velocity;
     return fabs(v.a1) > velocity_threshold || fabs(v.a2) > velocity_threshold ||
            fabs(v.a3) > velocity_threshold || fabs(v.a4) > velocity_threshold ||
-           fabs(v.a5) > velocity_threshold || fabs(v.a6) > velocity_threshold ||
-           fabs(v.a7) > velocity_threshold;
+           fabs(v.a5) > velocity_threshold || fabs(v.a6) > velocity_threshold;
 }
 
 

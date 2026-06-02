@@ -66,8 +66,7 @@ void rbt::MoveCommand::to_xml(XmlWriter &writer) const
                                  {"A3", std::to_string(target_joints.a3)},
                                  {"A4", std::to_string(target_joints.a4)},
                                  {"A5", std::to_string(target_joints.a5)},
-                                 {"A6", std::to_string(target_joints.a6)},
-                                 {"A7", std::to_string(target_joints.a7)}});
+                                 {"A6", std::to_string(target_joints.a6)}});
 
     writer.add_element("Cartesian", {{"X", std::to_string(target_cartesian.x)},
                                      {"Y", std::to_string(target_cartesian.y)},

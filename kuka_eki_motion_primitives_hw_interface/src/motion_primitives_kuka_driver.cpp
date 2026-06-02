@@ -359,7 +359,7 @@ bool MotionPrimitivesKukaDriver::add_linear_joint_cmd()
       hw_mo_prim_commands_[5] * rad_to_deg,
       hw_mo_prim_commands_[6] * rad_to_deg};
   rbt::MoveCommand command;
-  command = rbt::MoveCommand(rbt::PoseJoints(joints[0], joints[1], joints[2], joints[3], joints[4], joints[5], 0.0));   // last 0.0 for not used A7
+  command = rbt::MoveCommand(rbt::PoseJoints(joints[0], joints[1], joints[2], joints[3], joints[4], joints[5]));
   add_vel_and_acc_to_command(command);
   add_blending_to_command(command);
   RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), 

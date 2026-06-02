@@ -55,11 +55,9 @@ struct PoseJoints
     float a4 = std::numeric_limits<float>::quiet_NaN();
     float a5 = std::numeric_limits<float>::quiet_NaN();
     float a6 = std::numeric_limits<float>::quiet_NaN();
-    float a7 = std::numeric_limits<float>::quiet_NaN();
 
     PoseJoints() {}
     PoseJoints(float a1, float a2, float a3, float a4, float a5, float a6) : a1(a1), a2(a2), a3(a3), a4(a4), a5(a5), a6(a6) {}
-    PoseJoints(float a1, float a2, float a3, float a4, float a5, float a6, float a7) : a1(a1), a2(a2), a3(a3), a4(a4), a5(a5), a6(a6), a7(a7) {}
 };
 
 struct PoseCartesian
