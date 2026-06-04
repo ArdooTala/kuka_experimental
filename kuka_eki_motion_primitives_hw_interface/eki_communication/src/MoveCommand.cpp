@@ -59,14 +59,14 @@ void rbt::MoveCommand::to_xml(XmlWriter &writer) const
                                  {"Velocity", std::to_string(velocity)},
                                  {"Acceleration", std::to_string(acceleration)},
                                  {"Blending", std::to_string(blending)},
-                                 {"WaitForGripper", std::to_string(wait_for_gripper)}});
+                                 {"WaitForGripper", std::to_string(wait_for_gripper});
 
     writer.add_element("Joint", {{"A1", std::to_string(target_joints.a1)},
                                  {"A2", std::to_string(target_joints.a2)},
                                  {"A3", std::to_string(target_joints.a3)},
                                  {"A4", std::to_string(target_joints.a4)},
                                  {"A5", std::to_string(target_joints.a5)},
-                                 {"A6", std::to_string(target_joints.a6)}});
+                                 {"A6", std::to_string(target_joints.e6)}});
 
     writer.add_element("Cartesian", {{"X", std::to_string(target_cartesian.x)},
                                      {"Y", std::to_string(target_cartesian.y)},
@@ -81,6 +81,13 @@ void rbt::MoveCommand::to_xml(XmlWriter &writer) const
                                         {"A", std::to_string(via_cartesian.a)},
                                         {"B", std::to_string(via_cartesian.b)},
                                         {"C", std::to_string(via_cartesian.c)}});
+
+    writer.add_element("ExtAxis", {{"E1", std::to_string(target_ext_joints.e1)},
+                                   {"E2", std::to_string(target_ext_joints.e2)},
+                                   {"E3", std::to_string(target_ext_joints.e3)},
+                                   {"E4", std::to_string(target_ext_joints.e4)},
+                                   {"E5", std::to_string(target_ext_joints.e5)},
+                                   {"E6", std::to_string(target_ext_joints.e6)}});
 
     writer.add_element("Teached", {{"PositionIndex", std::to_string(target_teached)}});
 

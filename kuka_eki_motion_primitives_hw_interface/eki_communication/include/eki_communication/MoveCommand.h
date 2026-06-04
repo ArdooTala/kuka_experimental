@@ -51,6 +51,7 @@ public:
     PoseJoints target_joints;
     PoseCartesian target_cartesian;
     PoseCartesian via_cartesian;
+    PoseExtJoints target_ext_joints;
     int target_teached = 0;
 
     void to_xml(XmlWriter &writer) const;

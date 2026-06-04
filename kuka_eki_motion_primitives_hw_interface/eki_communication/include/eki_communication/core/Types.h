@@ -74,6 +74,19 @@ struct PoseCartesian
     PoseCartesian(float x, float y, float z, float a, float b, float c) : x(x), y(y), z(z), a(a), b(b), c(c) {}
 };
 
+struct PoseExtJoints
+{
+    float e1 = std::numeric_limits<float>::quiet_NaN();
+    float e2 = std::numeric_limits<float>::quiet_NaN();
+    float e3 = std::numeric_limits<float>::quiet_NaN();
+    float e4 = std::numeric_limits<float>::quiet_NaN();
+    float e5 = std::numeric_limits<float>::quiet_NaN();
+    float e6 = std::numeric_limits<float>::quiet_NaN();
+
+    PoseExtJoints() {}
+    PoseExtJoints(float e1, float e2, float e3, float e4, float e5, float e6) : e1(e1), e2(e2), e3(e3), e4(e4), e5(e5), e6(e6) {}
+};
+
 struct GripPositions
 {
     float base = 0.f;

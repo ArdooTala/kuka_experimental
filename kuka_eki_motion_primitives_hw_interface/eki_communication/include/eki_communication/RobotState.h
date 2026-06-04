@@ -46,6 +46,7 @@ namespace rbt
         PoseCartesian position_cartesian;
         PoseJoints velocity;
         PoseJoints torque;
+        PoseExtJoints position_ext_joints;
 
         float gripper_jaw_position = 0.f;
         float gripper_jaw_status = 0.f;
