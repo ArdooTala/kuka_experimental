@@ -58,7 +58,7 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
 
   // State interfaces for the motion_primitive_forward_controller
   hw_mo_prim_states_.resize(2, std::numeric_limits<double>::quiet_NaN());     // execution_status, ready_for_new_primitive
-  hw_mo_prim_commands_.resize(25, std::numeric_limits<double>::quiet_NaN());  // motion_type + 6 joints + 2*7 positions + blend_radius + velocity + acceleration + move_time
+  hw_mo_prim_commands_.resize(31, std::numeric_limits<double>::quiet_NaN());  // motion_type + 6 joints + 6 external joints + 7 positions + 7 via positions + blend_radius + velocity + acceleration + move_time
 
   return CallbackReturn::SUCCESS;
 }
@@ -88,6 +88,13 @@ std::vector<hardware_interface::StateInterface> MotionPrimitivesKukaDriver::expo
 
       state_interfaces.emplace_back(hardware_interface::StateInterface(
       info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_joint_eff_states_[i]));
+  }
+
+
+  for (size_t i = 0; i < 6; ++i)
+  {
+    state_interfaces.emplace_back(hardware_interface::StateInterface(
+      "joint_e" + std::to_string(i+1), hardware_interface::HW_IF_POSITION, &hw_joint_vel_states_[i + 6]));
   }
 
   // State interfaces for the motion_primitive_forward_controller
@@ -133,6 +140,13 @@ std::vector<hardware_interface::CommandInterface> MotionPrimitivesKukaDriver::ex
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "velocity", &hw_mo_prim_commands_[22]));
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "acceleration", &hw_mo_prim_commands_[23]));
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "move_time", &hw_mo_prim_commands_[24]));
+  // External joint position commands (e1, e2, ..., e6)
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e1", &hw_mo_prim_commands_[25]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e2", &hw_mo_prim_commands_[26]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e3", &hw_mo_prim_commands_[27]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e4", &hw_mo_prim_commands_[28]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e5", &hw_mo_prim_commands_[29]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e6", &hw_mo_prim_commands_[30]));
 
   return command_interfaces;
 }
@@ -204,6 +218,14 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::read(
   hw_joint_eff_states_[4] = torque.a5;
   hw_joint_eff_states_[5] = torque.a6;
   
+  const rbt::PoseExtJoints& ext_joints = robot_state.position_ext_joints;
+  hw_joint_pos_states_[6] = ext_joints.e1;
+  hw_joint_pos_states_[7] = ext_joints.e2;
+  hw_joint_pos_states_[8] = ext_joints.e3;
+  hw_joint_pos_states_[9] = ext_joints.e4;
+  hw_joint_pos_states_[10] = ext_joints.e5;
+  hw_joint_pos_states_[11] = ext_joints.e6;
+
   if(!checkCommandIdDoneQueue.empty() && checkCommandIdDoneQueue.front() == robot_.last_finished_command_id()) // Motion Primitive or Sequence done
   {
     RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Robot finished command with ID: %d", robot_.last_finished_command_id());
@@ -360,12 +382,16 @@ bool MotionPrimitivesKukaDriver::add_linear_joint_cmd()
       hw_mo_prim_commands_[6] * rad_to_deg};
   rbt::MoveCommand command;
   command = rbt::MoveCommand(rbt::PoseJoints(joints[0], joints[1], joints[2], joints[3], joints[4], joints[5]));
+  add_ext_axes_to_command(command);
   add_vel_and_acc_to_command(command);
   add_blending_to_command(command);
   RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), 
         "Added LINEAR_JOINT with joint positions: [%f, %f, %f, %f, %f, %f]"
+        "External axes positions: [%f, %f, %f, %f, %f, %f]"
         ", velocity: %f, acceleration: %f, blending: %f",
         joints[0], joints[1], joints[2], joints[3], joints[4], joints[5],
+        command.target_ext_joints.e1, command.target_ext_joints.e2, command.target_ext_joints.e3,
+        command.target_ext_joints.e4, command.target_ext_joints.e5, command.target_ext_joints.e6,
         command.velocity, command.acceleration, command.blending);
   robot_.perform(command);
   return true;
@@ -443,6 +469,24 @@ bool MotionPrimitivesKukaDriver::add_circular_cartesian_cmd()
   robot_.perform(command);
 
   return true;
+}
+
+void MotionPrimitivesKukaDriver::add_ext_axes_to_command(rbt::MoveCommand &command)
+{
+  // Check if external joint positions are valid
+  for (int i = 25; i <= 30; ++i) {
+    if (std::isnan(hw_mo_prim_commands_[i])) {
+        RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Invalid motion command: joint positions contain NaN values");
+        return;
+    }
+  }
+  constexpr double rad_to_deg = 180.0 / M_PI;
+  command.target_ext_joints.e1 = hw_mo_prim_commands_[25];
+  command.target_ext_joints.e2 = hw_mo_prim_commands_[26];
+  command.target_ext_joints.e3 = hw_mo_prim_commands_[27];
+  command.target_ext_joints.e4 = hw_mo_prim_commands_[28];
+  command.target_ext_joints.e5 = hw_mo_prim_commands_[29];
+  command.target_ext_joints.e6 = hw_mo_prim_commands_[30];
 }
 
 void MotionPrimitivesKukaDriver::add_vel_and_acc_to_command(rbt::MoveCommand &command)
