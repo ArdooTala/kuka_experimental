@@ -30,6 +30,10 @@ def create_eki_xml_rob(act_joint_pos, command_id="1"):
         joint.set(f'A{i+1}', str(q[i]))
     #joint.set('A7', "0.0")  # Placeholder for A7
 
+    ext_joint = ET.SubElement(position, 'ExtJoint')
+    for i in range(6):
+        ext_joint.set(f'E{i+1}', str(q[i]))
+
     # Cartesian positions (placeholder values)
     cartesian = ET.SubElement(position, 'Cartesian')
     for axis in ['X', 'Y', 'Z', 'A', 'B', 'C']:
