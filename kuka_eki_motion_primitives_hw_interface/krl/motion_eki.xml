@@ -34,7 +34,6 @@
          <ELEMENT Tag="RobotCommand/Move/Joint/@A4" Type="REAL"/>
          <ELEMENT Tag="RobotCommand/Move/Joint/@A5" Type="REAL"/>
          <ELEMENT Tag="RobotCommand/Move/Joint/@A6" Type="REAL"/>
-         <ELEMENT Tag="RobotCommand/Move/Joint/@A7" Type="REAL"/>
          <!-- Move cartesian positions -->
          <ELEMENT Tag="RobotCommand/Move/Cartesian/@X" Type="REAL"/>
          <ELEMENT Tag="RobotCommand/Move/Cartesian/@Y" Type="REAL"/>
@@ -49,6 +48,13 @@
          <ELEMENT Tag="RobotCommand/Move/Cartesian_Aux/@A" Type="REAL"/>
          <ELEMENT Tag="RobotCommand/Move/Cartesian_Aux/@B" Type="REAL"/>
          <ELEMENT Tag="RobotCommand/Move/Cartesian_Aux/@C" Type="REAL"/>
+         <!-- Move external axes positions -->
+         <ELEMENT Tag="RobotCommand/Move/ExtAxis/@E1" Type="REAL"/>
+         <ELEMENT Tag="RobotCommand/Move/ExtAxis/@E2" Type="REAL"/>
+         <ELEMENT Tag="RobotCommand/Move/ExtAxis/@E3" Type="REAL"/>
+         <ELEMENT Tag="RobotCommand/Move/ExtAxis/@E4" Type="REAL"/>
+         <ELEMENT Tag="RobotCommand/Move/ExtAxis/@E5" Type="REAL"/>
+         <ELEMENT Tag="RobotCommand/Move/ExtAxis/@E6" Type="REAL"/>
          <!-- Move teached position index -->
          <ELEMENT Tag="RobotCommand/Move/Teached/@PositionIndex" Type="INT"/>
          <!-- Gripper parameter -->
@@ -80,7 +86,6 @@
          <ELEMENT Tag="RobotState/Position/Joint/@A4"/>
          <ELEMENT Tag="RobotState/Position/Joint/@A5"/>
          <ELEMENT Tag="RobotState/Position/Joint/@A6"/>
-         <ELEMENT Tag="RobotState/Position/Joint/@A7"/>
          <!-- Cartesian state positions -->
          <ELEMENT Tag="RobotState/Position/Cartesian/@X"/>
          <ELEMENT Tag="RobotState/Position/Cartesian/@Y"/>
@@ -88,6 +93,13 @@
          <ELEMENT Tag="RobotState/Position/Cartesian/@A"/>
          <ELEMENT Tag="RobotState/Position/Cartesian/@B"/>
          <ELEMENT Tag="RobotState/Position/Cartesian/@C"/>
+         <!-- External Axis state positions -->
+         <ELEMENT Tag="RobotState/Position/ExtAxis/@E1"/>
+         <ELEMENT Tag="RobotState/Position/ExtAxis/@E2"/>
+         <ELEMENT Tag="RobotState/Position/ExtAxis/@E3"/>
+         <ELEMENT Tag="RobotState/Position/ExtAxis/@E4"/>
+         <ELEMENT Tag="RobotState/Position/ExtAxis/@E5"/>
+         <ELEMENT Tag="RobotState/Position/ExtAxis/@E6"/>
          <!-- Joint state velocities -->
          <ELEMENT Tag="RobotState/Velocity/@A1"/>
          <ELEMENT Tag="RobotState/Velocity/@A2"/>
