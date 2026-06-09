@@ -52,9 +52,11 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
   async_thread_shutdown_ = false;
 
   // Joint states for RViz, ...
-  hw_joint_pos_states_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-  hw_joint_vel_states_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-  hw_joint_eff_states_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+  // 6 robot joints + 6 external joints
+  // Driver reads all the values from the robot, only the required ones are exported.
+  hw_joint_pos_states_.resize(12, std::numeric_limits<double>::quiet_NaN());
+  hw_joint_vel_states_.resize(12, std::numeric_limits<double>::quiet_NaN());
+  hw_joint_eff_states_.resize(12, std::numeric_limits<double>::quiet_NaN());
 
   // State interfaces for the motion_primitive_forward_controller
   hw_mo_prim_states_.resize(2, std::numeric_limits<double>::quiet_NaN());     // execution_status, ready_for_new_primitive
@@ -88,13 +90,6 @@ std::vector<hardware_interface::StateInterface> MotionPrimitivesKukaDriver::expo
 
       state_interfaces.emplace_back(hardware_interface::StateInterface(
       info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_joint_eff_states_[i]));
-  }
-
-
-  for (size_t i = 0; i < 6; ++i)
-  {
-    state_interfaces.emplace_back(hardware_interface::StateInterface(
-      "joint_e" + std::to_string(i+1), hardware_interface::HW_IF_POSITION, &hw_joint_vel_states_[i + 6]));
   }
 
   // State interfaces for the motion_primitive_forward_controller
@@ -141,12 +136,10 @@ std::vector<hardware_interface::CommandInterface> MotionPrimitivesKukaDriver::ex
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "acceleration", &hw_mo_prim_commands_[23]));
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "move_time", &hw_mo_prim_commands_[24]));
   // External joint position commands (e1, e2, ..., e6)
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e1", &hw_mo_prim_commands_[25]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e2", &hw_mo_prim_commands_[26]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e3", &hw_mo_prim_commands_[27]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e4", &hw_mo_prim_commands_[28]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e5", &hw_mo_prim_commands_[29]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e6", &hw_mo_prim_commands_[30]));
+  for (size_t i = 0; i < info_.joints.size() - 6; ++i)
+  {
+    command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e" + std::to_string(i + 1), &hw_mo_prim_commands_[25 + i]));
+  }
 
   return command_interfaces;
 }
@@ -201,6 +194,14 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::read(
   hw_joint_pos_states_[3] = joints.a4 * deg_to_rad;
   hw_joint_pos_states_[4] = joints.a5 * deg_to_rad;
   hw_joint_pos_states_[5] = joints.a6 * deg_to_rad;
+  
+  const rbt::PoseExtJoints& ext_joints = robot_state.position_ext_joints;
+  hw_joint_pos_states_[6] = ext_joints.e1;
+  hw_joint_pos_states_[7] = ext_joints.e2;
+  hw_joint_pos_states_[8] = ext_joints.e3;
+  hw_joint_pos_states_[9] = ext_joints.e4;
+  hw_joint_pos_states_[10] = ext_joints.e5;
+  hw_joint_pos_states_[11] = ext_joints.e6;
 
   const rbt::PoseJoints& velocity = robot_state.velocity;
   hw_joint_vel_states_[0] = velocity.a1;
@@ -217,14 +218,6 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::read(
   hw_joint_eff_states_[3] = torque.a4;
   hw_joint_eff_states_[4] = torque.a5;
   hw_joint_eff_states_[5] = torque.a6;
-  
-  const rbt::PoseExtJoints& ext_joints = robot_state.position_ext_joints;
-  hw_joint_pos_states_[6] = ext_joints.e1;
-  hw_joint_pos_states_[7] = ext_joints.e2;
-  hw_joint_pos_states_[8] = ext_joints.e3;
-  hw_joint_pos_states_[9] = ext_joints.e4;
-  hw_joint_pos_states_[10] = ext_joints.e5;
-  hw_joint_pos_states_[11] = ext_joints.e6;
 
   if(!checkCommandIdDoneQueue.empty() && checkCommandIdDoneQueue.front() == robot_.last_finished_command_id()) // Motion Primitive or Sequence done
   {
