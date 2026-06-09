@@ -380,7 +380,7 @@ bool MotionPrimitivesKukaDriver::add_linear_joint_cmd()
   add_blending_to_command(command);
   RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), 
         "Added LINEAR_JOINT with joint positions: [%f, %f, %f, %f, %f, %f]"
-        "External axes positions: [%f, %f, %f, %f, %f, %f]"
+        ", External axes positions: [%f, %f, %f, %f, %f, %f]"
         ", velocity: %f, acceleration: %f, blending: %f",
         joints[0], joints[1], joints[2], joints[3], joints[4], joints[5],
         command.target_ext_joints.e1, command.target_ext_joints.e2, command.target_ext_joints.e3,
@@ -468,18 +468,46 @@ void MotionPrimitivesKukaDriver::add_ext_axes_to_command(rbt::MoveCommand &comma
 {
   // Check if external joint positions are valid
   for (int i = 25; i <= 30; ++i) {
-    if (std::isnan(hw_mo_prim_commands_[i])) {
-        RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Invalid motion command: joint positions contain NaN values");
-        return;
-    }
   }
+
   constexpr double rad_to_deg = 180.0 / M_PI;
-  command.target_ext_joints.e1 = hw_mo_prim_commands_[25];
-  command.target_ext_joints.e2 = hw_mo_prim_commands_[26];
-  command.target_ext_joints.e3 = hw_mo_prim_commands_[27];
-  command.target_ext_joints.e4 = hw_mo_prim_commands_[28];
-  command.target_ext_joints.e5 = hw_mo_prim_commands_[29];
-  command.target_ext_joints.e6 = hw_mo_prim_commands_[30];
+  double converted_vals[6];
+
+  for (size_t j = 0; j < 6; ++j) {
+    double raw_val = hw_mo_prim_commands_[25 + j];
+    if (std::isnan(raw_val)) {
+        RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "External Axis position is NaN");
+        converted_vals[j] = std::numeric_limits<double>::quiet_NaN();
+        continue;
+    }
+    double final_val = raw_val;
+
+    // Check if the corresponding joint description exists (main joints are 0-5, ext joints are 6-11)
+    if (info_.joints.size() > 6 + j) {
+      const auto & joint_info = info_.joints[6 + j];
+      auto it = joint_info.parameters.find("axis_type");
+      if (it != joint_info.parameters.end()) {
+        const std::string & axis_type = it->second;
+        RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Adding external joint %zu with raw value: %f and axis type: %s", j + 1, raw_val, axis_type.c_str());
+        if (axis_type == "rotary") {
+          final_val = raw_val * rad_to_deg;
+        } else if (axis_type == "linear") {
+          final_val = raw_val * 1000.0;
+        }
+      }
+      else {
+        RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "No axis_type specified for joint %s. Using raw value: %f", joint_info.name.c_str(), raw_val);
+      }
+    }
+    converted_vals[j] = final_val;
+  }
+
+  command.target_ext_joints.e1 = converted_vals[0];
+  command.target_ext_joints.e2 = converted_vals[1];
+  command.target_ext_joints.e3 = converted_vals[2];
+  command.target_ext_joints.e4 = converted_vals[3];
+  command.target_ext_joints.e5 = converted_vals[4];
+  command.target_ext_joints.e6 = converted_vals[5];
 }
 
 void MotionPrimitivesKukaDriver::add_vel_and_acc_to_command(rbt::MoveCommand &command)
