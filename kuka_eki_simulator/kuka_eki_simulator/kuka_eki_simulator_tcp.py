@@ -21,7 +21,8 @@ def create_eki_xml_rob(act_joint_pos, command_id="1"):
 
     # Command
     command = ET.SubElement(root, 'Command')
-    command.set('Id', str(command_id))
+    command.set('Id', "0")
+    command.set('Finished_Id', str(command_id))
 
     # Joint positions
     position = ET.SubElement(root, 'Position')
@@ -134,7 +135,7 @@ def main(args=None):
     node_name = 'kuka_eki_simulation_tcp'
     cycle_time = 0.004
     act_joint_pos = np.array([0, -90, 90, 0, 90, 0], dtype=np.float64)
-    act_command_id = -1
+    act_command_id = 0
     ext_ax_pos = None
     timeout_count = 0
     max_timeout = 5
@@ -176,7 +177,7 @@ def main(args=None):
                 time.sleep(0.001)  # FIXME: make this a ros2 node
                 try:
                     # Create and send robot state as XML
-                    str_data = create_eki_xml_rob(act_joint_pos, act_command_id+1)
+                    str_data = create_eki_xml_rob(act_joint_pos, act_command_id)
                     msg = String()
                     msg.data = str(str_data)
                     eki_act_pub.publish(msg)
@@ -208,7 +209,7 @@ def main(args=None):
                     timeout_count += 1
                 except socket.error as e:
                     node.get_logger().error(f"Socket error: {e}")
-                    continue
+                    break
 
     except KeyboardInterrupt:
         node.get_logger().info("Shutting down due to keyboard interrupt.")
