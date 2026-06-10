@@ -12,10 +12,13 @@ from std_msgs.msg import String
 
 max_vel = 1.0 * 100.0
 
-def create_eki_xml_rob(act_joint_pos, command_id="1"):
+def create_eki_xml_rob(act_joint_pos, command_id="1", ext_ax_pos=None):
     q = act_joint_pos
     qd = [0.0] * 6  # Joint velocities
     eff = [0.0] * 6  # Joint torques
+
+    if ext_ax_pos is None:
+        ext_ax_pos = [0.0] * 6
 
     root = ET.Element('RobotState')
 
@@ -32,7 +35,7 @@ def create_eki_xml_rob(act_joint_pos, command_id="1"):
 
     ext_joint = ET.SubElement(position, 'ExtJoint')
     for i in range(6):
-        ext_joint.set(f'E{i+1}', str(q[i]))
+        ext_joint.set(f'E{i+1}', str(ext_ax_pos[i]))
 
     # Cartesian positions (placeholder values)
     cartesian = ET.SubElement(position, 'Cartesian')
@@ -111,6 +114,19 @@ def parse_eki_xml_sen(data):
 
         result['joint_positions'] = np.array(joint_values, dtype=np.float64)
 
+        # Extract ext joint values (from <Move><Joint E1="0.000000" E2="0.000000" ...>)
+        ext_joint = move_element.find('ExtAxis')
+        if ext_joint is None:
+            raise ValueError("Missing <ExtAxis> element in <Move> section")
+
+        ext_joint_values = []
+        for ext_axis in ['E1', 'E2', 'E3', 'E4', 'E5', 'E6']:
+            ext_axis_value = ext_joint.attrib.get(ext_axis)
+            if ext_axis_value is None:
+                raise ValueError(f"Missing external joint value for {axis}")
+            ext_joint_values.append(float(ext_axis_value))
+
+        result['ext_joint_positions'] = np.array(ext_joint_values, dtype=np.float64)
         return result
 
     except Exception as e:
@@ -171,7 +187,7 @@ def main(args=None):
                 time.sleep(0.001)  # FIXME: make this a ros2 node
                 try:
                     # Create and send robot state as XML
-                    str_data = create_eki_xml_rob(act_joint_pos, act_command_id+1)
+                    str_data = create_eki_xml_rob(act_joint_pos, act_command_id+1, ext_ax_pos)
                     msg = String()
                     msg.data = str(str_data)
                     eki_act_pub.publish(msg)
@@ -193,6 +209,7 @@ def main(args=None):
                     if parsed_data is not None and parsed_data['joint_positions'] is not None:
                         act_joint_pos = parsed_data['joint_positions']
                         act_command_id = parsed_data['command_id']
+                        ext_ax_pos = parsed_data['ext_joint_positions']
                     else:
                         continue
                     time.sleep(cycle_time / 2)
