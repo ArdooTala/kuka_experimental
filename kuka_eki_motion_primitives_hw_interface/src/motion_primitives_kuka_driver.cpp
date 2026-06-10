@@ -62,6 +62,35 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
   hw_mo_prim_states_.resize(2, std::numeric_limits<double>::quiet_NaN());     // execution_status, ready_for_new_primitive
   hw_mo_prim_commands_.resize(31, std::numeric_limits<double>::quiet_NaN());  // motion_type + 6 joints + 6 external joints + 7 positions + 7 via positions + blend_radius + velocity + acceleration + move_time
 
+  // Cache external axis types (indices 6-11 map to external joints e1-e6)
+  ext_axis_types_.assign(6, rbt::ExtAxisType::UNKNOWN);
+  for (size_t j = 0; j < 6; ++j)
+  {
+    if (info_.joints.size() > 6 + j)
+    {
+      const auto & joint_info = info_.joints[6 + j];
+      auto it = joint_info.parameters.find("axis_type");
+      if (it != joint_info.parameters.end())
+      {
+        const std::string & axis_type = it->second;
+        if (axis_type == "rotary")
+        {
+          ext_axis_types_[j] = rbt::ExtAxisType::ROTARY;
+          RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Cached external joint %zu (%s) as ROTARY", j + 1, joint_info.name.c_str());
+        }
+        else if (axis_type == "linear")
+        {
+          ext_axis_types_[j] = rbt::ExtAxisType::LINEAR;
+          RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Cached external joint %zu (%s) as LINEAR", j + 1, joint_info.name.c_str());
+        }
+      }
+      else
+      {
+        RCLCPP_WARN(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "No axis_type specified for joint %s. Caching as UNKNOWN", joint_info.name.c_str());
+      }
+    }
+  }
+
   return CallbackReturn::SUCCESS;
 }
 
@@ -196,12 +225,24 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::read(
   hw_joint_pos_states_[5] = joints.a6 * deg_to_rad;
   
   const rbt::PoseExtJoints& ext_joints = robot_state.position_ext_joints;
-  hw_joint_pos_states_[6] = ext_joints.e1;
-  hw_joint_pos_states_[7] = ext_joints.e2;
-  hw_joint_pos_states_[8] = ext_joints.e3;
-  hw_joint_pos_states_[9] = ext_joints.e4;
-  hw_joint_pos_states_[10] = ext_joints.e5;
-  hw_joint_pos_states_[11] = ext_joints.e6;
+  double raw_ext_vals[6] = {
+    ext_joints.e1,
+    ext_joints.e2,
+    ext_joints.e3,
+    ext_joints.e4,
+    ext_joints.e5,
+    ext_joints.e6
+  };
+
+  for (size_t j = 0; j < 6; ++j) {
+    double val = raw_ext_vals[j];
+    if (ext_axis_types_[j] == rbt::ExtAxisType::ROTARY) {
+      val = raw_ext_vals[j] * deg_to_rad;
+    } else if (ext_axis_types_[j] == rbt::ExtAxisType::LINEAR) {
+      val = raw_ext_vals[j] / 1000.0;
+    }
+    hw_joint_pos_states_[6 + j] = val;
+  }
 
   const rbt::PoseJoints& velocity = robot_state.velocity;
   hw_joint_vel_states_[0] = velocity.a1;
@@ -482,22 +523,10 @@ void MotionPrimitivesKukaDriver::add_ext_axes_to_command(rbt::MoveCommand &comma
     }
     double final_val = raw_val;
 
-    // Check if the corresponding joint description exists (main joints are 0-5, ext joints are 6-11)
-    if (info_.joints.size() > 6 + j) {
-      const auto & joint_info = info_.joints[6 + j];
-      auto it = joint_info.parameters.find("axis_type");
-      if (it != joint_info.parameters.end()) {
-        const std::string & axis_type = it->second;
-        RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Adding external joint %zu with raw value: %f and axis type: %s", j + 1, raw_val, axis_type.c_str());
-        if (axis_type == "rotary") {
-          final_val = raw_val * rad_to_deg;
-        } else if (axis_type == "linear") {
-          final_val = raw_val * 1000.0;
-        }
-      }
-      else {
-        RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "No axis_type specified for joint %s. Using raw value: %f", joint_info.name.c_str(), raw_val);
-      }
+    if (ext_axis_types_[j] == rbt::ExtAxisType::ROTARY) {
+      final_val = raw_val * rad_to_deg;
+    } else if (ext_axis_types_[j] == rbt::ExtAxisType::LINEAR) {
+      final_val = raw_val * 1000.0;
     }
     converted_vals[j] = final_val;
   }

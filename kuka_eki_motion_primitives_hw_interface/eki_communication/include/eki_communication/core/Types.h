@@ -105,4 +105,11 @@ enum RobotEvent
     STATE = 1,
     RUN = 2
 };
+
+enum class ExtAxisType
+{
+  ROTARY,
+  LINEAR,
+  UNKNOWN
+};
 } // namespace rbt
