@@ -119,13 +119,15 @@ def main(args=None):
     rclpy.init(args=args)
     parser = argparse.ArgumentParser(description='KUKA EKI Simulation over TCP')
     parser.add_argument('--eki_hw_iface_ip', default="127.0.0.1", help='The IP address of the EKI control interface (default=127.0.0.1)')
-    parser.add_argument('--eki_hw_iface_port', default=54600, help='The port of the EKI control interface (default=54600)')
+    parser.add_argument('--eki_hw_iface_motion_port', default=54600, help='The port of the EKI control motion interface (default=54600)')
+    parser.add_argument('--eki_hw_iface_meta_port', default=54601, help='The port of the EKI control meta interface (default=54600)')
     parser.add_argument('--sen', default='ImFree', help='Type attribute in EKI XML doc. E.g. <Sen Type:"ImFree">')
 
     # Parse known arguments
     args, _ = parser.parse_known_args()
     host = args.eki_hw_iface_ip
-    port = int(args.eki_hw_iface_port)
+    port_motion = int(args.eki_hw_iface_motion_port)
+    port_meta = int(args.eki_hw_iface_meta_port)
     sen_type = args.sen
 
     # Configuration
@@ -133,6 +135,7 @@ def main(args=None):
     cycle_time = 0.004
     act_joint_pos = np.array([0, -90, 90, 0, 90, 0], dtype=np.float64)
     act_command_id = -1
+    ext_ax_pos = None
     timeout_count = 0
     max_timeout = 5
 
@@ -145,20 +148,26 @@ def main(args=None):
 
     # Create TCP socket
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        node.get_logger().info(f"Successfully created TCP socket on ip:port {host}:{port}.")
+        s_motion = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        node.get_logger().info(f"Successfully created TCP socket on ip:port {host}:{port_motion}.")
+        s_meta = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        node.get_logger().info(f"Successfully created TCP socket on ip:port {host}:{port_meta}.")
     except socket.error as e:
         node.get_logger().fatal(f"Could not create socket. Error: {e}")
         sys.exit()
 
     node.get_logger().info(f"Waiting for connection.")
     # Bind the socket
-    s.bind((host, port))
-    s.listen(1)
+    s_motion.bind((host, port_motion))
+    s_meta.bind((host, port_meta))
+    s_motion.listen(1)
+    s_meta.listen(1)
 
     # Accept incoming connection
-    conn, addr = s.accept()
-    node.get_logger().info(f"TCP connection established with {addr}.")
+    conn_motion, addr = s_motion.accept()
+    node.get_logger().info(f"Motion TCP connection established with {addr}.")
+    conn_meta, addr = s_meta.accept()
+    node.get_logger().info(f"Meta TCP connection established with {addr}.")
 
     try:
         while rclpy.ok():
@@ -171,11 +180,11 @@ def main(args=None):
                     msg = String()
                     msg.data = str(str_data)
                     eki_act_pub.publish(msg)
-                    conn.send(str_data)  # Send data over TCP
+                    conn_motion.send(str_data)  # Send data over TCP
                     node.get_logger().info(f"Sent XML:\n{str_data.decode('utf-8')}")
 
                     # Receive the command message
-                    recv_msg = conn.recv(1024)
+                    recv_msg = conn_motion.recv(1024)
                     if not recv_msg:
                         break  # No data received, close connection
                     node.get_logger().info(f"Received XML:\n{recv_msg.decode('utf-8')}")
@@ -185,6 +194,7 @@ def main(args=None):
 
                     # Parse the received XML and update the joint position and command ID
                     parsed_data = parse_eki_xml_sen(recv_msg)
+                    node.get_logger().info(f"Parsed Data:\n{parsed_data}")
 
                     if parsed_data is not None and parsed_data['joint_positions'] is not None:
                         act_joint_pos = parsed_data['joint_positions']
@@ -205,8 +215,10 @@ def main(args=None):
     finally:
         # Clean up and close the connection
         node.get_logger().info(f"Shutting down '{node_name}' node.")
-        conn.close()  # Close the TCP connection
-        s.close()  # Close the socket
+        conn_motion.close()  # Close the TCP connection
+        s_motion.close()  # Close the socket
+        conn_meta.close()  # Close the TCP connection
+        s_meta.close()  # Close the socket
 
     rclpy.shutdown()
 
