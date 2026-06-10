@@ -157,7 +157,6 @@ def main(args=None):
     act_joint_pos = np.array([0, -90, 90, 0, 90, 0], dtype=np.float64)
     act_command_id = 0
     ext_ax_pos = None
-    timeout_count = 0
     max_timeout = 5
 
     node = rclpy.create_node(node_name)
@@ -190,47 +189,47 @@ def main(args=None):
     conn_meta, addr = s_meta.accept()
     node.get_logger().info(f"Meta TCP connection established with {addr}.")
 
+    conn_motion.settimeout(cycle_time)
+
     try:
         while rclpy.ok():
-            timeout_count = 0
-            while rclpy.ok() and timeout_count < max_timeout:
-                time.sleep(0.001)  # FIXME: make this a ros2 node
+            time.sleep(0.001)  # FIXME: make this a ros2 node
+            try:
+                # Create and send robot state as XML
+                str_data = create_eki_xml_rob(act_joint_pos, act_command_id, ext_ax_pos)
+                msg = String()
+                msg.data = str(str_data)
+                eki_act_pub.publish(msg)
+                conn_motion.send(str_data)  # Send data over TCP
+                node.get_logger().info(f"Sent XML:\n{str_data.decode('utf-8')}")
+
+                # Receive the command message
                 try:
-                    # Create and send robot state as XML
-                    str_data = create_eki_xml_rob(act_joint_pos, act_command_id, ext_ax_pos)
-                    msg = String()
-                    msg.data = str(str_data)
-                    eki_act_pub.publish(msg)
-                    conn_motion.send(str_data)  # Send data over TCP
-                    node.get_logger().info(f"Sent XML:\n{str_data.decode('utf-8')}")
-
-                    # Receive the command message
                     recv_msg = conn_motion.recv(1024)
-                    if not recv_msg:
-                        break  # No data received, close connection
-                    node.get_logger().info(f"Received XML:\n{recv_msg.decode('utf-8')}")
-                    msg = String()
-                    msg.data = str(recv_msg)
-                    eki_cmd_pub.publish(msg)
-
-                    # Parse the received XML and update the joint position and command ID
-                    parsed_data = parse_eki_xml_sen(recv_msg)
-                    node.get_logger().info(f"Parsed Data:\n{parsed_data}")
-
-                    if parsed_data is not None and parsed_data['joint_positions'] is not None:
-                        act_joint_pos = parsed_data['joint_positions']
-                        act_command_id = parsed_data['command_id']
-                        ext_ax_pos = parsed_data['ext_joint_positions']
-                    else:
-                        continue
-                    time.sleep(cycle_time / 2)
-
                 except socket.timeout:
-                    node.get_logger().info(f"Socket timed out.")
-                    timeout_count += 1
-                except socket.error as e:
-                    node.get_logger().error(f"Socket error: {e}")
-                    break
+                    continue
+                if not recv_msg:
+                    break  # No data received, close connection
+                node.get_logger().info(f"Received XML:\n{recv_msg.decode('utf-8')}")
+                msg = String()
+                msg.data = str(recv_msg)
+                eki_cmd_pub.publish(msg)
+
+                # Parse the received XML and update the joint position and command ID
+                parsed_data = parse_eki_xml_sen(recv_msg)
+                node.get_logger().info(f"Parsed Data:\n{parsed_data}")
+
+                if parsed_data is not None and parsed_data['joint_positions'] is not None:
+                    act_joint_pos = parsed_data['joint_positions']
+                    act_command_id = parsed_data['command_id']
+                    ext_ax_pos = parsed_data['ext_joint_positions']
+                else:
+                    continue
+                time.sleep(cycle_time / 2)
+
+            except socket.error as e:
+                node.get_logger().error(f"Socket error: {e}")
+                break
 
     except KeyboardInterrupt:
         node.get_logger().info("Shutting down due to keyboard interrupt.")
