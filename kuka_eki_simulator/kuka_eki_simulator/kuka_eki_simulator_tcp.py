@@ -12,9 +12,9 @@ from std_msgs.msg import String
 
 max_vel = 1.0 * 100.0
 
-def create_eki_xml_rob(act_joint_pos, command_id="1", ext_ax_pos=None):
+def create_eki_xml_rob(act_joint_pos, command_id="1", ext_ax_pos=None, in_motion=False):
     q = act_joint_pos
-    qd = [0.0] * 6  # Joint velocities
+    qd = [100.0 if in_motion else 0.0] * 6  # Joint velocities
     eff = [0.0] * 6  # Joint torques
 
     if ext_ax_pos is None:
@@ -24,8 +24,14 @@ def create_eki_xml_rob(act_joint_pos, command_id="1", ext_ax_pos=None):
 
     # Command
     command = ET.SubElement(root, 'Command')
-    command.set('Id', "0")
-    command.set('Finished_Id', str(command_id))
+    if in_motion:
+        command.set('Id', str(command_id))
+        command.set('Finished_Id', str(command_id - 1))
+    else:
+        command.set('Id', "0")
+        command.set('Finished_Id', str(command_id))
+
+    command.set('Stopped', "0")
 
     # Joint positions
     position = ET.SubElement(root, 'Position')
@@ -189,7 +195,7 @@ def main(args=None):
     conn_meta, addr = s_meta.accept()
     node.get_logger().info(f"Meta TCP connection established with {addr}.")
 
-    conn_motion.settimeout(cycle_time)
+    conn_motion.settimeout(1)
 
     try:
         while rclpy.ok():
@@ -219,12 +225,20 @@ def main(args=None):
                 parsed_data = parse_eki_xml_sen(recv_msg)
                 node.get_logger().info(f"Parsed Data:\n{parsed_data}")
 
-                if parsed_data is not None and parsed_data['joint_positions'] is not None:
-                    act_joint_pos = parsed_data['joint_positions']
-                    act_command_id = parsed_data['command_id']
-                    ext_ax_pos = parsed_data['ext_joint_positions']
-                else:
+                if parsed_data is not None and parsed_data['joint_positions'] is None:
                     continue
+
+                act_joint_pos = parsed_data['joint_positions']
+                act_command_id = parsed_data['command_id']
+                ext_ax_pos = parsed_data['ext_joint_positions']
+
+                str_data = create_eki_xml_rob(act_joint_pos, act_command_id, ext_ax_pos, True)
+                msg = String()
+                msg.data = str(str_data)
+                eki_act_pub.publish(msg)
+                conn_motion.send(str_data)  # Send data over TCP
+                node.get_logger().info(f"Sent XML:\n{str_data.decode('utf-8')}")
+
                 time.sleep(cycle_time / 2)
 
             except socket.error as e:
