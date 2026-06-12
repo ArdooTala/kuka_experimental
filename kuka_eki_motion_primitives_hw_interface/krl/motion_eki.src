@@ -105,7 +105,7 @@ def motion_eki()
 end
 
 deffct command_type null_command()
-   decl axis joint
+   decl e6axis joint
    decl frame cartesian
    decl frame cartesian_aux
    decl move_type move_data
@@ -115,13 +115,8 @@ deffct command_type null_command()
    decl command_type command
    
    move_data = { mode 0, base_index 0, tool_index 0, wait_for_gripper 0, teached 0, velocity 0, acceleration 0, blending 0}
-   move_data.ext_axis[1] = 0
-   move_data.ext_axis[2] = 0
-   move_data.ext_axis[3] = 0
-   move_data.ext_axis[4] = 0
-   move_data.ext_axis[5] = 0
-   move_data.ext_axis[6] = 0
-   joint = { a1 0, a2 0, a3 0, a4 0, a5 0, a6 0}
+
+   joint = { a1 0, a2 0, a3 0, a4 0, a5 0, a6 0, e1 0, e2 0, e3 0, e4 0, e5 0, e6 0}
    move_data.joint = joint
    cartesian = { x 0, y 0, z 0, a 0, b 0, c 0 }
    move_data.cartesian = cartesian
@@ -312,9 +307,18 @@ deffct bool get_command(command :out)
    
    decl eki_status status
    
+   decl real ext_axis[6]
+   
    if not has_command() then
      return false
    endif
+   
+   ext_axis[1] = 0.0
+   ext_axis[2] = 0.0
+   ext_axis[3] = 0.0
+   ext_axis[4] = 0.0
+   ext_axis[5] = 0.0
+   ext_axis[6] = 0.0
    
    status = eki_getint("MOTION_EKI", "RobotCommand/@Id", command.id)
    status = eki_getint("MOTION_EKI", "RobotCommand/@Type", command.type)
@@ -326,6 +330,13 @@ deffct bool get_command(command :out)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/@Acceleration", command.move_data.acceleration)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/@Blending", command.move_data.blending)
    status = eki_getint("MOTION_EKI", "RobotCommand/Move/@WaitForGripper", command.move_data.wait_for_gripper)
+      
+   status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E1", ext_axis[1])
+   status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E2", ext_axis[2])
+   status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E3", ext_axis[3])
+   status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E4", ext_axis[4])
+   status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E5", ext_axis[5])
+   status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E6", ext_axis[6])
    
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Joint/@A1", command.move_data.joint.a1)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Joint/@A2", command.move_data.joint.a2)
@@ -334,6 +345,13 @@ deffct bool get_command(command :out)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Joint/@A5", command.move_data.joint.a5)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Joint/@A6", command.move_data.joint.a6)
    
+   command.move_data.joint.e1 = ext_axis[1]
+   command.move_data.joint.e2 = ext_axis[2]
+   command.move_data.joint.e3 = ext_axis[3]
+   command.move_data.joint.e4 = ext_axis[4]
+   command.move_data.joint.e5 = ext_axis[5]
+   command.move_data.joint.e6 = ext_axis[6]
+   
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Cartesian/@X", command.move_data.cartesian.x)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Cartesian/@Y", command.move_data.cartesian.y)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Cartesian/@Z", command.move_data.cartesian.z)
@@ -341,19 +359,26 @@ deffct bool get_command(command :out)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Cartesian/@B", command.move_data.cartesian.b)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Cartesian/@C", command.move_data.cartesian.c)
    
+   command.move_data.cartesian.e1 = ext_axis[1]
+   command.move_data.cartesian.e1 = ext_axis[2]
+   command.move_data.cartesian.e1 = ext_axis[3]
+   command.move_data.cartesian.e1 = ext_axis[4]
+   command.move_data.cartesian.e1 = ext_axis[5]
+   command.move_data.cartesian.e1 = ext_axis[6]
+   
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Cartesian_Aux/@X", command.move_data.cartesian_aux.x)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Cartesian_Aux/@Y", command.move_data.cartesian_aux.y)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Cartesian_Aux/@Z", command.move_data.cartesian_aux.z)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Cartesian_Aux/@A", command.move_data.cartesian_aux.a)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Cartesian_Aux/@B", command.move_data.cartesian_aux.b)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/Cartesian_Aux/@C", command.move_data.cartesian_aux.c)
-  
-   status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E1", command.move_data.ext_axis[1])
-   status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E2", command.move_data.ext_axis[2])
-   status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E3", command.move_data.ext_axis[3])
-   status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E4", command.move_data.ext_axis[4])
-   status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E5", command.move_data.ext_axis[5])
-   status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E6", command.move_data.ext_axis[6])
+   
+   command.move_data.cartesian_aux.e1 = ext_axis[1]
+   command.move_data.cartesian_aux.e2 = ext_axis[2]
+   command.move_data.cartesian_aux.e3 = ext_axis[3]
+   command.move_data.cartesian_aux.e4 = ext_axis[4]
+   command.move_data.cartesian_aux.e5 = ext_axis[5]
+   command.move_data.cartesian_aux.e6 = ext_axis[6]
   
    status = eki_getint("MOTION_EKI", "RobotCommand/Move/Teached/@PositionIndex", command.move_data.teached)
     
@@ -380,8 +405,6 @@ deffct int do_move(step :in, move_data :in, cmd_id :in)
    decl move_type move_data
    decl int cmd_id
    decl int error_code
-   decl e6axis target_axis
-   decl e6pos target_pos
    
    error_code = 0
    
@@ -405,69 +428,27 @@ deffct int do_move(step :in, move_data :in, cmd_id :in)
          set_joint_acc(move_data.acceleration)
          set_blending(move_data.blending)
          
-         target_axis = {a1 0, a2 0, a3 0, a4 0, a5 0, a6 0, e1 0, e2 0, e3 0, e4 0, e5 0, e6 0}
-         target_axis.a1 = move_data.joint.a1
-         target_axis.a2 = move_data.joint.a2
-         target_axis.a3 = move_data.joint.a3
-         target_axis.a4 = move_data.joint.a4
-         target_axis.a5 = move_data.joint.a5
-         target_axis.a6 = move_data.joint.a6
-         target_axis.e1 = move_data.ext_axis[1]
-         target_axis.e2 = move_data.ext_axis[2]
-         target_axis.e3 = move_data.ext_axis[3]
-         target_axis.e4 = move_data.ext_axis[4]
-         target_axis.e5 = move_data.ext_axis[5]
-         target_axis.e6 = move_data.ext_axis[6]
-         
          TRIGGER WHEN DISTANCE=1 DELAY=0 DO set_cmd_id_done(temp_cmd_id) PRIO=-1 ; save id of last finished motion primitive
          INTERRUPT ON 19   ; enable interrupt to stop movement
-         ptp target_axis c_ptp C_DIS
+         ptp move_data.joint c_ptp C_DIS
          INTERRUPT OFF 19
       case 2
          set_joint_vel(move_data.velocity)
          set_joint_acc(move_data.acceleration)
          set_blending(move_data.blending)
          
-         target_pos = {x 0, y 0, z 0, a 0, b 0, c 0, e1 0, e2 0, e3 0, e4 0, e5 0, e6 0}
-         target_pos.x = move_data.cartesian.x
-         target_pos.y = move_data.cartesian.y
-         target_pos.z = move_data.cartesian.z
-         target_pos.a = move_data.cartesian.a
-         target_pos.b = move_data.cartesian.b
-         target_pos.c = move_data.cartesian.c
-         target_pos.e1 = move_data.ext_axis[1]
-         target_pos.e2 = move_data.ext_axis[2]
-         target_pos.e3 = move_data.ext_axis[3]
-         target_pos.e4 = move_data.ext_axis[4]
-         target_pos.e5 = move_data.ext_axis[5]
-         target_pos.e6 = move_data.ext_axis[6]
-         
          TRIGGER WHEN DISTANCE=1 DELAY=0 DO set_cmd_id_done(temp_cmd_id) PRIO=-1
          INTERRUPT ON 19
-         ptp target_pos c_ptp C_DIS
+         ptp move_data.cartesian c_ptp C_DIS
          INTERRUPT OFF 19
       case 3
          set_cart_vel(move_data.velocity)
          set_cart_acc(move_data.acceleration)
          set_blending(move_data.blending)
          
-         target_pos = {x 0, y 0, z 0, a 0, b 0, c 0, e1 0, e2 0, e3 0, e4 0, e5 0, e6 0}
-         target_pos.x = move_data.cartesian.x
-         target_pos.y = move_data.cartesian.y
-         target_pos.z = move_data.cartesian.z
-         target_pos.a = move_data.cartesian.a
-         target_pos.b = move_data.cartesian.b
-         target_pos.c = move_data.cartesian.c
-         target_pos.e1 = move_data.ext_axis[1]
-         target_pos.e2 = move_data.ext_axis[2]
-         target_pos.e3 = move_data.ext_axis[3]
-         target_pos.e4 = move_data.ext_axis[4]
-         target_pos.e5 = move_data.ext_axis[5]
-         target_pos.e6 = move_data.ext_axis[6]
-         
          TRIGGER WHEN DISTANCE=1 DELAY=0 DO set_cmd_id_done(temp_cmd_id) PRIO=-1
          INTERRUPT ON 19
-         lin target_pos C_DIS
+         lin move_data.cartesian C_DIS
          INTERRUPT OFF 19
       ;case 4
       ;   INTERRUPT ON 19
@@ -480,28 +461,9 @@ deffct int do_move(step :in, move_data :in, cmd_id :in)
          set_cart_acc(move_data.acceleration)
          set_blending(move_data.blending)
          
-         ; Note: circ command needs E6POS for both via and target point.
-         ; For now just setting target.
-         
-         target_pos = {x 0, y 0, z 0, a 0, b 0, c 0, e1 0, e2 0, e3 0, e4 0, e5 0, e6 0}
-         target_pos.x = move_data.cartesian.x
-         target_pos.y = move_data.cartesian.y
-         target_pos.z = move_data.cartesian.z
-         target_pos.a = move_data.cartesian.a
-         target_pos.b = move_data.cartesian.b
-         target_pos.c = move_data.cartesian.c
-         target_pos.e1 = move_data.ext_axis[1]
-         target_pos.e2 = move_data.ext_axis[2]
-         target_pos.e3 = move_data.ext_axis[3]
-         target_pos.e4 = move_data.ext_axis[4]
-         target_pos.e5 = move_data.ext_axis[5]
-         target_pos.e6 = move_data.ext_axis[6]
-         
-         ; For circ we ignore external axes for via point for now, as it wasn't requested.
-         
          TRIGGER WHEN DISTANCE=1 DELAY=0 DO set_cmd_id_done(temp_cmd_id) PRIO=-1
          INTERRUPT ON 19
-         circ move_data.cartesian_aux, target_pos C_DIS
+         circ move_data.cartesian_aux, move_data.cartesian C_DIS
          INTERRUPT OFF 19
    endswitch
    
