@@ -44,7 +44,7 @@ void rbt::RobotState::from_xml(XmlReader &reader)
                                        element->FloatAttribute("B"),
                                        element->FloatAttribute("C")};
 
-    element = reader.get_element("Position/ExtJoint");
+    element = reader.get_element("Position/ExtAxis");
     position_ext_joints = PoseExtJoints{element->FloatAttribute("E1"),
                                     element->FloatAttribute("E2"),
                                     element->FloatAttribute("E3"),
