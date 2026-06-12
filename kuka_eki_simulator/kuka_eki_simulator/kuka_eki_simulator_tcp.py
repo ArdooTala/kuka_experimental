@@ -8,6 +8,7 @@ import time
 import xml.etree.ElementTree as ET
 import errno
 import rclpy
+import threading
 from std_msgs.msg import String
 
 max_vel = 1.0 * 100.0
@@ -140,7 +141,20 @@ def parse_eki_xml_sen(data):
         print(f"[Error] Failed to parse RobotCommand: {e}")
         return None
 
-
+def setup_and_accept(host, port, name, connections, conn_lock, node):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        node.get_logger().info(f"Successfully created TCP socket for {name} on ip:port {host}:{port}.")
+        s.bind((host, port))
+        s.listen(1)
+        node.get_logger().info(f"Waiting for {name} connection.")
+        conn, addr = s.accept()
+        with conn_lock:
+            connections[name] = {'conn': conn, 'addr': addr, 'sock': s}
+        node.get_logger().info(f"{name} TCP connection established with {addr}.")
+    except socket.error as e:
+        node.get_logger().fatal(f"Could not setup socket for {name}. Error: {e}")
+        raise e
 
 def main(args=None):
     rclpy.init(args=args)
@@ -172,28 +186,24 @@ def main(args=None):
     eki_act_pub = node.create_publisher(String, '~/eki/state', 1)
     eki_cmd_pub = node.create_publisher(String, '~/eki/command', 1)
 
-    # Create TCP socket
-    try:
-        s_motion = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        node.get_logger().info(f"Successfully created TCP socket on ip:port {host}:{port_motion}.")
-        s_meta = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        node.get_logger().info(f"Successfully created TCP socket on ip:port {host}:{port_meta}.")
-    except socket.error as e:
-        node.get_logger().fatal(f"Could not create socket. Error: {e}")
-        sys.exit()
-
-    node.get_logger().info(f"Waiting for connection.")
-    # Bind the socket
-    s_motion.bind((host, port_motion))
-    s_meta.bind((host, port_meta))
-    s_motion.listen(1)
-    s_meta.listen(1)
+    # Connections container
+    connections = {}
+    conn_lock = threading.Lock()
 
     # Accept incoming connection
-    conn_motion, addr = s_motion.accept()
-    node.get_logger().info(f"Motion TCP connection established with {addr}.")
-    conn_meta, addr = s_meta.accept()
-    node.get_logger().info(f"Meta TCP connection established with {addr}.")
+    t_motion = threading.Thread(target=setup_and_accept, args=(host, port_motion, 'motion', connections, conn_lock, node))
+    t_meta = threading.Thread(target=setup_and_accept, args=(host, port_meta, 'meta', connections, conn_lock, node))
+
+    t_motion.start()
+    t_meta.start()
+
+    t_motion.join()
+    t_meta.join()
+
+    conn_motion = connections['motion']['conn']
+    s_motion = connections['motion']['sock']
+    conn_meta = connections['meta']['conn']
+    s_meta = connections['meta']['sock']
 
     conn_motion.settimeout(1)
 
