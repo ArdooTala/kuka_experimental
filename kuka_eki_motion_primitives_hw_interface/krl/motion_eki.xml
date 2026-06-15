@@ -5,7 +5,8 @@
       </EXTERNAL>
       <INTERNAL>
          <ENVIRONMENT>Program</ENVIRONMENT>        <!-- Server run via robot interpreter (Program / Submit / System) -->
-         <BUFFERING Mode="FIFO" Limit="64" />     <!-- Mode: FIFO /LIFO | Limit: Buffering up to 512 messages (system max) -->
+         <BUFFSIZE limit="4096" />
+         <BUFFERING Mode="FIFO" Limit="128" />     <!-- Mode: FIFO /LIFO | Limit: Buffering up to *limit* messages (system max) -->
          <ALIVE Set_Flag="1" />                    <!-- Use $flag[1] to indicate alive/good connection status -->
          <IP>172.31.1.147</IP>                    <!-- IP address for EKI interface on robot controller (KRC) -->
          <PORT>54600</PORT>                        <!-- Port of EKI interface on robot controller [54600, 54615] -->
