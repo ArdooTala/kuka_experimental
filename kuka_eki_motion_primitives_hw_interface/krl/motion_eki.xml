@@ -19,6 +19,8 @@
          <!-- Command -->
          <ELEMENT Tag="RobotCommand/@Id" Type="INT"/>
          <ELEMENT Tag="RobotCommand/@Type" Type="INT"/> <!-- Type: 1=Move, 2=Gripper -->
+         <ELEMENT Tag="RobotCommand/@AbortCommands" Set_Flag="3"/>
+         <ELEMENT Tag="RobotCommand/@ResetAbortCommands" Set_Flag="4"/>
          <!-- Move parameter -->
          <ELEMENT Tag="RobotCommand/Move/@Mode" Type="INT"/> <!-- Mode: 1=Joint, 2=Cartesian-Ptp, 3=Cartesian-Lin, 6=Cartesian-Circ (4=Teached-Ptp, 5=Teached-Lin) -->
          <ELEMENT Tag="RobotCommand/Move/@BaseIndex" Type="INT"/>
@@ -73,6 +75,7 @@
          <ELEMENT Tag="RobotState/Command/@Id"/>
          <ELEMENT Tag="RobotState/Command/@Finished_Id"/>
          <ELEMENT Tag="RobotState/Command/@Stopped"/>
+         <ELEMENT Tag="RobotState/@CommandEmpty"/>
          <!-- Joint state positions -->
          <ELEMENT Tag="RobotState/Position/Joint/@A1"/>
          <ELEMENT Tag="RobotState/Position/Joint/@A2"/>
