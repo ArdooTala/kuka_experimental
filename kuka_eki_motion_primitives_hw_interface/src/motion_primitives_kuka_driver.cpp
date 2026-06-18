@@ -516,7 +516,35 @@ void MotionPrimitivesKukaDriver::asyncExecuteMotionThread()
   const auto TIMEOUT_DURATION = std::chrono::seconds(5);
   while (!async_thread_shutdown_) 
   {
-    if (new_execution_available_) 
+    if (new_stop_available_) {
+      std::lock_guard<std::mutex> guard(stop_mutex_);
+      new_stop_available_ = false;
+      robot_.abort_commands();
+      RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Waiting for Robot to stop ...");
+      while(!robot_.robot_stopped()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // wait until robot is stopped
+      }
+      while(!checkCommandIdDoneQueue.empty()){
+        // Remove all command IDs from the queue --> dont wait for them to get finished since they are discarded
+        checkCommandIdDoneQueue.pop();    
+      }
+      RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Robot stopped");
+      robot_stopped_ = true;
+      continue;
+    } else if (new_reset_available_) {
+      std::lock_guard<std::mutex> guard(stop_mutex_);
+      new_reset_available_ = false;
+      robot_.reset_abort_commands();
+      RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Waiting for Robot to reset stop ...");
+      while(robot_.robot_stopped()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      }
+      RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Robot reset stop done");
+      robot_stopped_ = false;
+      ready_for_new_primitive_ = true;
+      continue;
+    }
+    else if (new_execution_available_) 
     {
       std::lock_guard<std::mutex> guard(execution_mutex_);
       new_execution_available_ = false;
@@ -525,8 +553,20 @@ void MotionPrimitivesKukaDriver::asyncExecuteMotionThread()
       // Store last command ID to check if it was executed
       RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Last command ID: %d", robot_.last_command_id_of_sequence());
       checkCommandIdDoneQueue.push(robot_.last_command_id_of_sequence());
-      while (!robot_.run()) 
+      while (true) 
       {
+        // Check if AbortCommands is requested
+        if (new_stop_available_)
+        {
+          RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Abort requested while waiting for the command to run.");
+          break;
+        }
+        if (robot_.run())
+        {
+          RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Sent command to robot successfully.");
+          ready_for_new_primitive_ = true;
+          break;
+        }
         // Check if the timeout has been reached
         if (std::chrono::steady_clock::now() - start_time > TIMEOUT_DURATION) 
         {
@@ -536,8 +576,6 @@ void MotionPrimitivesKukaDriver::asyncExecuteMotionThread()
         // Small sleep to prevent busy waiting
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
       }
-      RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Sent command to robot successfully.");
-      ready_for_new_primitive_ = true;
     }
 
     // Small sleep to prevent busy waiting

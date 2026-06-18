@@ -125,12 +125,12 @@ void rbt::Robot::continue_commands()
 
 void rbt::Robot::abort_commands()
 {
-    send_meta(true);
+    send_abort(true);
 }
 
 void rbt::Robot::reset_abort_commands()
 {
-    send_meta(false);
+    send_abort(false);
 }
 
 void rbt::Robot::set_velocity(float value)
@@ -202,6 +202,18 @@ void rbt::Robot::send_meta(bool abort_commands)
     command.to_xml(writer);
 
     int size = meta_interface_.send(writer.get_string());
+}
+
+void rbt::Robot::send_abort(bool abort)
+{
+    rbt::AbortCommand command{abort};
+
+    XmlWriter writer;
+    writer.add_prolog();
+
+    command.to_xml(writer);
+
+    int size = interface_.send(writer.get_string());
 }
 
 void rbt::Robot::connect_to(rbt::EKInterface &interface, const std::string &host, int port)

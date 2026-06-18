@@ -25,6 +25,7 @@
 #include <eki_communication/core/EKInterface.h>
 #include <eki_communication/core/CommandSequence.h>
 #include <eki_communication/MetaCommand.h>
+#include <eki_communication/AbortCommand.h>
 #include <eki_communication/RobotState.h>
 #include <eki_communication/RobotMetaState.h>
 
@@ -60,6 +61,7 @@ namespace rbt
         void perform(const Command &command);
         void send_sequence();
         void send_meta(bool abort_commands = false);
+        void send_abort(bool abort = true);
 
     public:
         Robot() : Component("rbt::Robot") {}
