@@ -8,20 +8,28 @@ import time
 import xml.etree.ElementTree as ET
 import errno
 import rclpy
+import threading
 from std_msgs.msg import String
 
 max_vel = 1.0 * 100.0
 
-def create_eki_xml_rob(act_joint_pos, command_id="1"):
+def create_eki_xml_rob(act_joint_pos, command_id="1", in_motion=False):
     q = act_joint_pos
-    qd = [0.0] * 6  # Joint velocities
+    qd = [100.0 if in_motion else 0.0] * 6  # Joint velocities
     eff = [0.0] * 6  # Joint torques
 
     root = ET.Element('RobotState')
 
     # Command
     command = ET.SubElement(root, 'Command')
-    command.set('Id', str(command_id))
+    if in_motion:
+        command.set('Id', str(command_id))
+        command.set('Finished_Id', str(command_id - 1))
+    else:
+        command.set('Id', "0")
+        command.set('Finished_Id', str(command_id))
+
+    command.set('Stopped', "0")
 
     # Joint positions
     position = ET.SubElement(root, 'Position')
@@ -113,27 +121,41 @@ def parse_eki_xml_sen(data):
         print(f"[Error] Failed to parse RobotCommand: {e}")
         return None
 
-
+def setup_and_accept(host, port, name, connections, conn_lock, node):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        node.get_logger().info(f"Successfully created TCP socket for {name} on ip:port {host}:{port}.")
+        s.bind((host, port))
+        s.listen(1)
+        node.get_logger().info(f"Waiting for {name} connection.")
+        conn, addr = s.accept()
+        with conn_lock:
+            connections[name] = {'conn': conn, 'addr': addr, 'sock': s}
+        node.get_logger().info(f"{name} TCP connection established with {addr}.")
+    except socket.error as e:
+        node.get_logger().fatal(f"Could not setup socket for {name}. Error: {e}")
+        raise e
 
 def main(args=None):
     rclpy.init(args=args)
     parser = argparse.ArgumentParser(description='KUKA EKI Simulation over TCP')
     parser.add_argument('--eki_hw_iface_ip', default="127.0.0.1", help='The IP address of the EKI control interface (default=127.0.0.1)')
-    parser.add_argument('--eki_hw_iface_port', default=54600, help='The port of the EKI control interface (default=54600)')
+    parser.add_argument('--eki_hw_iface_motion_port', default=54600, help='The port of the EKI control motion interface (default=54600)')
+    parser.add_argument('--eki_hw_iface_meta_port', default=54601, help='The port of the EKI control meta interface (default=54600)')
     parser.add_argument('--sen', default='ImFree', help='Type attribute in EKI XML doc. E.g. <Sen Type:"ImFree">')
 
     # Parse known arguments
     args, _ = parser.parse_known_args()
     host = args.eki_hw_iface_ip
-    port = int(args.eki_hw_iface_port)
+    port_motion = int(args.eki_hw_iface_motion_port)
+    port_meta = int(args.eki_hw_iface_meta_port)
     sen_type = args.sen
 
     # Configuration
     node_name = 'kuka_eki_simulation_tcp'
     cycle_time = 0.004
     act_joint_pos = np.array([0, -90, 90, 0, 90, 0], dtype=np.float64)
-    act_command_id = -1
-    timeout_count = 0
+    act_command_id = 0
     max_timeout = 5
 
     node = rclpy.create_node(node_name)
@@ -143,70 +165,83 @@ def main(args=None):
     eki_act_pub = node.create_publisher(String, '~/eki/state', 1)
     eki_cmd_pub = node.create_publisher(String, '~/eki/command', 1)
 
-    # Create TCP socket
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        node.get_logger().info(f"Successfully created TCP socket on ip:port {host}:{port}.")
-    except socket.error as e:
-        node.get_logger().fatal(f"Could not create socket. Error: {e}")
-        sys.exit()
-
-    node.get_logger().info(f"Waiting for connection.")
-    # Bind the socket
-    s.bind((host, port))
-    s.listen(1)
+    # Connections container
+    connections = {}
+    conn_lock = threading.Lock()
 
     # Accept incoming connection
-    conn, addr = s.accept()
-    node.get_logger().info(f"TCP connection established with {addr}.")
+    t_motion = threading.Thread(target=setup_and_accept, args=(host, port_motion, 'motion', connections, conn_lock, node))
+    t_meta = threading.Thread(target=setup_and_accept, args=(host, port_meta, 'meta', connections, conn_lock, node))
+
+    t_motion.start()
+    t_meta.start()
+
+    t_motion.join()
+    t_meta.join()
+
+    conn_motion = connections['motion']['conn']
+    s_motion = connections['motion']['sock']
+    conn_meta = connections['meta']['conn']
+    s_meta = connections['meta']['sock']
+
+    conn_motion.settimeout(1)
 
     try:
         while rclpy.ok():
-            timeout_count = 0
-            while rclpy.ok() and timeout_count < max_timeout:
-                time.sleep(0.001)  # FIXME: make this a ros2 node
+            time.sleep(0.001)  # FIXME: make this a ros2 node
+            try:
+                # Create and send robot state as XML
+                str_data = create_eki_xml_rob(act_joint_pos, act_command_id)
+                msg = String()
+                msg.data = str(str_data)
+                eki_act_pub.publish(msg)
+                conn_motion.send(str_data)  # Send data over TCP
+                node.get_logger().info(f"Sent XML:\n{str_data.decode('utf-8')}")
+
+                # Receive the command message
                 try:
-                    # Create and send robot state as XML
-                    str_data = create_eki_xml_rob(act_joint_pos, act_command_id+1)
-                    msg = String()
-                    msg.data = str(str_data)
-                    eki_act_pub.publish(msg)
-                    conn.send(str_data)  # Send data over TCP
-                    node.get_logger().info(f"Sent XML:\n{str_data.decode('utf-8')}")
-
-                    # Receive the command message
-                    recv_msg = conn.recv(1024)
-                    if not recv_msg:
-                        break  # No data received, close connection
-                    node.get_logger().info(f"Received XML:\n{recv_msg.decode('utf-8')}")
-                    msg = String()
-                    msg.data = str(recv_msg)
-                    eki_cmd_pub.publish(msg)
-
-                    # Parse the received XML and update the joint position and command ID
-                    parsed_data = parse_eki_xml_sen(recv_msg)
-
-                    if parsed_data is not None and parsed_data['joint_positions'] is not None:
-                        act_joint_pos = parsed_data['joint_positions']
-                        act_command_id = parsed_data['command_id']
-                    else:
-                        continue
-                    time.sleep(cycle_time / 2)
-
+                    recv_msg = conn_motion.recv(1024)
                 except socket.timeout:
-                    node.get_logger().info(f"Socket timed out.")
-                    timeout_count += 1
-                except socket.error as e:
-                    node.get_logger().error(f"Socket error: {e}")
                     continue
+                if not recv_msg:
+                    break  # No data received, close connection
+                node.get_logger().info(f"Received XML:\n{recv_msg.decode('utf-8')}")
+                msg = String()
+                msg.data = str(recv_msg)
+                eki_cmd_pub.publish(msg)
+
+                # Parse the received XML and update the joint position and command ID
+                parsed_data = parse_eki_xml_sen(recv_msg)
+                node.get_logger().info(f"Parsed Data:\n{parsed_data}")
+
+                if parsed_data is not None and parsed_data['joint_positions'] is None:
+                    continue
+
+                act_joint_pos = parsed_data['joint_positions']
+                act_command_id = parsed_data['command_id']
+
+                str_data = create_eki_xml_rob(act_joint_pos, act_command_id, True)
+                msg = String()
+                msg.data = str(str_data)
+                eki_act_pub.publish(msg)
+                conn_motion.send(str_data)  # Send data over TCP
+                node.get_logger().info(f"Sent XML:\n{str_data.decode('utf-8')}")
+
+                time.sleep(cycle_time / 2)
+
+            except socket.error as e:
+                node.get_logger().error(f"Socket error: {e}")
+                break
 
     except KeyboardInterrupt:
         node.get_logger().info("Shutting down due to keyboard interrupt.")
     finally:
         # Clean up and close the connection
         node.get_logger().info(f"Shutting down '{node_name}' node.")
-        conn.close()  # Close the TCP connection
-        s.close()  # Close the socket
+        conn_motion.close()  # Close the TCP connection
+        s_motion.close()  # Close the socket
+        conn_meta.close()  # Close the TCP connection
+        s_meta.close()  # Close the socket
 
     rclpy.shutdown()
 
