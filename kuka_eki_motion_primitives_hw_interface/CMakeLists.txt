@@ -34,6 +34,7 @@ target_include_directories(
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/eki_communication/include
+    ${motion_primitives_controllers_INCLUDE_DIRS}
 )
 
 target_link_libraries(kuka_eki_motion_primitives_hw_interface
@@ -44,7 +45,6 @@ target_link_libraries(kuka_eki_motion_primitives_hw_interface
     angles::angles
     hardware_interface::hardware_interface
     hardware_interface::mock_components
-    motion_primitives_controllers::motion_primitives_controllers
     rclcpp::rclcpp
     rclcpp_lifecycle::rclcpp_lifecycle
     tf2_geometry_msgs::tf2_geometry_msgs
