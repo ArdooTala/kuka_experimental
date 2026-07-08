@@ -17,6 +17,7 @@
 #ifndef KUKA_EKI_MOTION_PRIMITIVES_HW_INTERFACE__MOTION_PRIMITIVES_KUKA_DRIVER_HPP_
 #define KUKA_EKI_MOTION_PRIMITIVES_HW_INTERFACE__MOTION_PRIMITIVES_KUKA_DRIVER_HPP_
 
+#include <array>
 #include <string>
 #include <vector>
 #include <queue>
@@ -102,6 +103,7 @@ private:
   bool add_linear_joint_cmd();
   bool add_linear_cartesian_cmd();
   bool add_circular_cartesian_cmd();
+  bool add_custom_cmd();
   void add_vel_and_acc_to_command(rbt::MoveCommand &command);
   void add_blending_to_command(rbt::MoveCommand &command);
   void reset_command_interfaces();
