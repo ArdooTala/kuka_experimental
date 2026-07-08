@@ -1,0 +1,52 @@
+deffct int do_custom_command(custom_cmd_data :in, cmd_id :in)
+  decl int cmd_id
+  decl custom_cmd_type custom_cmd_data
+
+  decl int error_code = 0
+
+  switch (custom_cmd_data.index)
+    case 1
+      home_all()
+    case 2
+      show_MsgNotify(custom_cmd_data.input_params[])
+    case 3
+      custom_command_1()
+    case 4
+      custom_cmd_w_param(custom_cmd_data.input_params[])
+    default
+      error_code = 2
+
+  return error_code
+end
+
+def home_all()
+  ptp $XHOME
+end
+
+def custom_command_1()
+  $OUT[51]=TRUE
+  WAIT SEC 1
+  $OUT[51]=FALSE
+end
+
+def show_MsgNotify(msg[] :in)
+  decl char msg[]
+
+  decl char msg_text[80]
+  decl int i
+
+  for i=1 to 80
+    msg_text[i]=msg[i]
+  endfor
+  MsgNotify("Input Param: %1", "EKICustomCommand", , msg_text[], )
+end
+
+def custom_cmd_w_param(input_param[] :in)
+  decl char input_param[]
+
+  decl int valueInt
+  valueInt=0
+  CAST_FROM(custom_cmd_data.input_params[],0,valueInt)
+  MsgNotify("Input Param: %1", "EKICustomCommand", valueInt, , )
+end
+
