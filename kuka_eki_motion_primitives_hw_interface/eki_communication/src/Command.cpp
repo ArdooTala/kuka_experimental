@@ -40,13 +40,26 @@ rbt::Command::Command(const MoveCommand &move, const GripCommand &grip) : Comman
     grip_ = grip;
 }
 
+rbt::Command::Command(const CustomCommand &custom) : Command()
+{
+    type_ = CommandType::CUSTOM;
+    custom_cmd_ = custom;
+}
+
 void rbt::Command::to_xml(XmlWriter &writer) const
 {
     writer.open_element("RobotCommand", {{"Id", std::to_string(id_)},
                                          {"Type", std::to_string(static_cast<int>(type_))}});
 
-    move_.to_xml(writer);
-    grip_.to_xml(writer);
+    if (type_ == CommandType::CUSTOM)
+    {
+        custom_cmd_.to_xml(writer);
+    }
+    else
+    {
+        move_.to_xml(writer);
+        grip_.to_xml(writer);
+    }
 
     writer.close_element();
 }

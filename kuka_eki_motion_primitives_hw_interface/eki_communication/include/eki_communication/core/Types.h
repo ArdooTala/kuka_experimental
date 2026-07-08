@@ -26,7 +26,8 @@ enum class CommandType
     NONE = 0,
     COMBINED = 1,
     MOVE = 2,
-    GRIP = 3
+    GRIP = 3,
+    CUSTOM = 4,
 };
 
 enum class MoveMode
