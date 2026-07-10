@@ -35,11 +35,14 @@ namespace rbt
     private:
         EKInterface interface_;
         EKInterface meta_interface_;
+        EKInterface param_interface_;
 
         int reconnect_delay_ = 1000;
         int loop_delay_ = 20;
+        int param_port_ = 54602;
         bool interface_used_ = false;
         bool meta_interface_used_ = false;
+        bool param_interface_used_ = false;
 
         RobotState state_;
         RobotMetaState meta_state_;
@@ -66,8 +69,8 @@ namespace rbt
         ~Robot() {}
 
         bool is_connected();
-        bool connect(const std::string &host, int port, int meta_port = 0);
-        void connect_async(const std::string &host, int port, int meta_port = 0);
+        bool connect(const std::string &host, int port, int meta_port = 0, int param_port = 54602);
+        void connect_async(const std::string &host, int port, int meta_port = 0, int param_port = 54602);
         void disconnect();
         void await_connection();
 

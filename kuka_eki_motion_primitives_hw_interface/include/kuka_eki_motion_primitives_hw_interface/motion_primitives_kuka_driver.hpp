@@ -81,6 +81,7 @@ private:
   std::string robot_ip_;
   int eki_robot_port_;
   int eki_robot_meta_port_;
+  int eki_robot_param_port_ = 54602;
 
   rbt::Robot robot_;
   bool robot_stopped_{false};

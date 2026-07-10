@@ -19,27 +19,74 @@
 
 #pragma once
 
-#include <array>
+#include <vector>
+#include <string>
 #include <cstdint>
+#include <cstring>
 
 #include <eki_communication/xml/XmlWriter.h>
 #include <eki_communication/core/Types.h>
 
 namespace rbt
 {
+struct CmdParam
+{
+    int type;
+    int index;
+    std::vector<uint8_t> value;
+
+    CmdParam(int idx, const std::vector<uint8_t> &val, int type_code)
+        : type(type_code), index(idx), value(val) {}
+
+    CmdParam(int idx, int32_t val)
+        : type(3), index(idx)
+    {
+        value.resize(4);
+        std::memcpy(value.data(), &val, 4);
+    }
+
+    CmdParam(int idx, double val)
+        : type(2), index(idx)
+    {
+        value.resize(8);
+        std::memcpy(value.data(), &val, 8);
+    }
+
+    CmdParam(int idx, bool val)
+        : type(4), index(idx)
+    {
+        value.resize(1);
+        value[0] = val ? 1 : 0;
+    }
+
+    CmdParam(int idx, const std::string &val)
+        : type(1), index(idx)
+    {
+        value.assign(val.begin(), val.end());
+    }
+};
+
 class CustomCommand
 {
 public:
     CustomCommand() {}
-    CustomCommand(int cmd_index, const std::array<uint8_t, 256> &input_params)
-        : cmd_index_(cmd_index), input_params_(input_params)
+    CustomCommand(int id, int cmd_index, const std::vector<CmdParam> &params = {})
+        : id_(id), cmd_index_(cmd_index), params_(params)
     {
     }
     ~CustomCommand() {}
 
-    int cmd_index_ = 0;
-    std::array<uint8_t, 256> input_params_ = {};
+    int id() const { return id_; }
+    int cmd_index() const { return cmd_index_; }
+    int params_count() const { return params_.size(); }
+    const std::vector<CmdParam> &params() const { return params_; }
 
     void to_xml(XmlWriter &writer) const;
+    static void param_to_xml(XmlWriter &writer, const CmdParam &param, int batch_id);
+
+private:
+    int id_ = 0;
+    int cmd_index_ = 0;
+    std::vector<CmdParam> params_;
 };
 } // namespace rbt

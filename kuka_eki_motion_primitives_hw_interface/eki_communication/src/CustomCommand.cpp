@@ -18,19 +18,26 @@
 //          Mathias Fuhrer
 
 #include <eki_communication/CustomCommand.h>
-#include <algorithm>
 
 void rbt::CustomCommand::to_xml(XmlWriter &writer) const
 {
-    writer.open_element("Custom");
-    writer.open_element("Cmd", {{"CmdIndex", std::to_string(cmd_index_)}});
-    writer.open_element("Params");
-    auto last_nonzero = std::find_if(input_params_.rbegin(), input_params_.rend(),
-                                     [](uint8_t b) { return b != 0; });
-    size_t len = std::distance(input_params_.begin(), last_nonzero.base());
-    std::string raw(reinterpret_cast<const char *>(input_params_.data()), len);
+    writer.add_element("CustomCmd", {
+        {"id", std::to_string(id_)},
+        {"CmdIndex", std::to_string(cmd_index_)},
+        {"ParamsCount", std::to_string(params_count())}
+    });
+}
+
+void rbt::CustomCommand::param_to_xml(XmlWriter &writer, const CmdParam &param, int batch_id)
+{
+    writer.open_element("CustomParam", {
+        {"Id", std::to_string(batch_id)},
+        {"Type", std::to_string(param.type)},
+        {"Index", std::to_string(param.index)}
+    });
+    writer.open_element("Value");
+    std::string raw(reinterpret_cast<const char *>(param.value.data()), param.value.size());
     writer.add_content(raw);
-    writer.close_element();
     writer.close_element();
     writer.close_element();
 }

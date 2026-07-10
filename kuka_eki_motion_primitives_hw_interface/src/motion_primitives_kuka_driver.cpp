@@ -58,7 +58,7 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
 
   // State interfaces for the motion_primitive_forward_controller
   hw_mo_prim_states_.resize(2, std::numeric_limits<double>::quiet_NaN());     // execution_status, ready_for_new_primitive
-  hw_mo_prim_commands_.resize(26, std::numeric_limits<double>::quiet_NaN());  // motion_type + 6 joints + 2*7 positions + blend_radius + velocity + acceleration + move_time + custom_cmd_index
+  hw_mo_prim_commands_.resize(28, std::numeric_limits<double>::quiet_NaN());  // motion_type + 6 joints + 2*7 positions + blend_radius + velocity + acceleration + move_time + custom_cmd_index + custom_cmd_id + custom_cmd_params_count
 
   return CallbackReturn::SUCCESS;
 }
@@ -135,6 +135,10 @@ std::vector<hardware_interface::CommandInterface> MotionPrimitivesKukaDriver::ex
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "move_time", &hw_mo_prim_commands_[24]));
   // Custom command index
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "custom_cmd_index", &hw_mo_prim_commands_[25]));
+  // Custom command batch id
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "custom_cmd_id", &hw_mo_prim_commands_[26]));
+  // Custom command params count
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "custom_cmd_params_count", &hw_mo_prim_commands_[27]));
 
   return command_interfaces;
 }
@@ -148,7 +152,11 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_activate(
   robot_ip_ = info_.hardware_parameters["robot_ip"];
   eki_robot_port_ = std::stoi(info_.hardware_parameters["eki_robot_port"]);
   eki_robot_meta_port_ = std::stoi(info_.hardware_parameters["eki_robot_meta_port"]);
-  RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Trying to connect to the host: [%s], port: [%d], meta_port: [%d]", robot_ip_.c_str(), eki_robot_port_, eki_robot_meta_port_);
+  if (info_.hardware_parameters.find("eki_robot_param_port") != info_.hardware_parameters.end())
+  {
+    eki_robot_param_port_ = std::stoi(info_.hardware_parameters["eki_robot_param_port"]);
+  }
+  RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Trying to connect to the host: [%s], port: [%d], meta_port: [%d], param_port: [%d]", robot_ip_.c_str(), eki_robot_port_, eki_robot_meta_port_, eki_robot_param_port_);
   if (robot_ip_.empty() || eki_robot_port_ == 0)
   {
       RCLCPP_ERROR(
@@ -157,7 +165,7 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_activate(
   }
 
   RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Connecting to the robot ...");
-  robot_.connect_async(robot_ip_, eki_robot_port_, eki_robot_meta_port_);
+  robot_.connect_async(robot_ip_, eki_robot_port_, eki_robot_meta_port_, eki_robot_param_port_);
   robot_.await_connection();
   RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Connected to the robot.");
     RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "System Successfully activated!");
@@ -468,9 +476,19 @@ bool MotionPrimitivesKukaDriver::add_custom_cmd()
     RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "custom_cmd_index is NaN");
     return false;
   }
-  // TODO(anyone): read custom_cmd_params from command interfaces when implemented
-  static constexpr std::array<uint8_t, 256> empty_params{};
-  robot_.perform(rbt::CustomCommand(cmd_index, empty_params));
+  int cmd_id = static_cast<int>(hw_mo_prim_commands_[26]);
+  if (std::isnan(hw_mo_prim_commands_[26])) {
+    RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "custom_cmd_id is NaN");
+    return false;
+  }
+  int params_count = static_cast<int>(hw_mo_prim_commands_[27]);
+  if (std::isnan(hw_mo_prim_commands_[27])) {
+    RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "custom_cmd_params_count is NaN");
+    return false;
+  }
+  // TODO(anyone): build typed CmdParam list from extended command interfaces
+  std::vector<rbt::CmdParam> params;
+  robot_.perform(rbt::CustomCommand(cmd_id, cmd_index, params));
   return true;
 }
 

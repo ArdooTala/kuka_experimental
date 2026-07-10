@@ -24,15 +24,24 @@
 
 bool rbt::Robot::is_connected()
 {
-    return (!interface_used_ || interface_.is_connected()) && (!meta_interface_used_ || meta_interface_.is_connected());
+    return (!interface_used_ || interface_.is_connected()) &&
+           (!meta_interface_used_ || meta_interface_.is_connected()) &&
+           (!param_interface_used_ || param_interface_.is_connected());
 }
 
-bool rbt::Robot::connect(const std::string &host, int port, int meta_port)
+bool rbt::Robot::connect(const std::string &host, int port, int meta_port, int param_port)
 {
-    std::cout << "[Robot] Trying to connect to the host: [" << host << "], port: [" << port << "], meta_port: [" << meta_port << "]" << std::endl;
+    param_port_ = param_port;
+    std::cout << "[Robot] Trying to connect to the host: [" << host << "], port: [" << port << "], meta_port: [" << meta_port << "], param_port: [" << param_port << "]" << std::endl;
     interface_used_ = port > 0;
     meta_interface_used_ = meta_port > 0;
-    
+    param_interface_used_ = param_port > 0;
+
+    if (param_interface_used_)
+    {
+        connect_to(param_interface_, host, param_port);
+    }
+
     if (meta_interface_used_)
     {
         connect_to(meta_interface_, host, meta_port);
@@ -46,10 +55,11 @@ bool rbt::Robot::connect(const std::string &host, int port, int meta_port)
     return is_connected();
 }
 
-void rbt::Robot::connect_async(const std::string &host, int port, int meta_port)
+void rbt::Robot::connect_async(const std::string &host, int port, int meta_port, int param_port)
 {
-    std::thread thread = std::thread([this, host, port, meta_port]() {
-        this->connect(host, port, meta_port);
+    param_port_ = param_port;
+    std::thread thread = std::thread([this, host, port, meta_port, param_port]() {
+        this->connect(host, port, meta_port, param_port);
 
         spin();
     });
@@ -69,6 +79,12 @@ void rbt::Robot::disconnect()
     {
         std::cout << "[Robot] Disconnecting Meta EKI Interface ..." << std::endl;
         meta_interface_.disconnect();
+    }
+
+    if (param_interface_used_)
+    {
+        std::cout << "[Robot] Disconnecting Param EKI Interface ..." << std::endl;
+        param_interface_.disconnect();
     }
 }
 
@@ -97,6 +113,17 @@ void rbt::Robot::perform(const MoveCommand &move, const GripCommand &grip)
 
 void rbt::Robot::perform(const CustomCommand &custom)
 {
+    if (param_interface_used_ && custom.params_count() > 0)
+    {
+        XmlWriter param_writer;
+        param_writer.line_break = "\n";
+        for (size_t i = 0; i < custom.params().size(); ++i)
+        {
+            CustomCommand::param_to_xml(param_writer, custom.params()[i], custom.id());
+        }
+        param_interface_.send(param_writer.get_string());
+    }
+
     perform(Command(custom));
 }
 

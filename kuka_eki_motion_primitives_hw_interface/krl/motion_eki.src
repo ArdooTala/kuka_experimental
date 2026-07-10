@@ -96,8 +96,10 @@ def motion_eki()
                check_error(do_move(current_command.step, current_command.move_data, current_command.id))
             case 3
                check_error(do_grip(current_command.grip_data))
-            case 4
-               check_error(do_custom_command(current_command.custom_cmd_data, current_command.id))
+          case 4
+                current_param_id = current_command.custom_cmd_data.id
+                check_error(read_param_sequence(current_command.custom_cmd_data.params_count))
+                check_error(do_custom_command(current_command.custom_cmd_data, current_command.id))
          endswitch
       else
          CURRENT_COMMAND_ID = 0
@@ -131,10 +133,9 @@ deffct command_type null_command()
    vacuum = { suction 0, cylinder 0 }
    grip_data.vacuum = vacuum
    
-   custom_cmd_data.index = 0
-   for index = 1 to 256
-      custom_cmd_data.input_params[index] = 0
-   endfor
+    custom_cmd_data.id = 0
+    custom_cmd_data.index = 0
+    custom_cmd_data.params_count = 0
    
    command = { id 0, step 0, type 0}
    command.move_data = move_data
@@ -160,24 +161,27 @@ def init_interface()
    $timer[1] = -200        ; Time in [ms] before first interrupt call
    $timer_stop[1] = false  ; Start timer 1
    
-   status = eki_init("MOTION_EKI")
-   status = eki_open("MOTION_EKI")
+    status = eki_init("MOTION_EKI")
+    status = eki_open("MOTION_EKI")
+   init_param_interface()
 end
 
 
 def reset_interface()
-   decl eki_status status
-   msgnotify("Reset motion interface", "Motion EKI")
+    decl eki_status status
+    msgnotify("Reset motion interface", "Motion EKI")
 
-   status = eki_clear("MOTION_EKI")
-   status = eki_init("MOTION_EKI")
-   status = eki_open("MOTION_EKI")
+    status = eki_clear("MOTION_EKI")
+    status = eki_init("MOTION_EKI")
+    status = eki_open("MOTION_EKI")
+   reset_param_interface()
 end
 
 def close_interface()
-   decl eki_status status
-   msgnotify("Close motion interface", "Motion EKI")
-   status = eki_close("MOTION_EKI")
+    decl eki_status status
+    msgnotify("Close motion interface", "Motion EKI")
+    status = eki_close("MOTION_EKI")
+   close_param_interface()
 end
 
 
@@ -257,8 +261,10 @@ def check_error(error_code :in)
       switch error_code
          case 1
             error_message[] = "Fehler 1"
-         case 2
-            error_message[] = "Invalid Custom Command Index"
+          case 2
+             error_message[] = "Invalid Custom Command Index"
+          case 3
+             error_message[] = "Custom Command Params Missing"
          default
             error_message[] = "Unbekannter Fehler"
       endswitch
@@ -362,8 +368,9 @@ deffct bool get_command(command :out)
    status = eki_getint("MOTION_EKI", "RobotCommand/Grip/Vacuum/@Suction", command.grip_data.vacuum.suction)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Grip/Vacuum/@Cylinder", command.grip_data.vacuum.cylinder)
    
-   status = eki_getint("MOTION_EKI", "RobotCommand/Custom/Cmd/@CmdIndex", command.custom_cmd_data.index)
-   status = eki_getstring("MOTION_EKI", "RobotCommand/Custom/Cmd/Params", command.custom_cmd_data.input_params[])
+    status = eki_getint("MOTION_EKI", "RobotCommand/CustomCmd/@id", command.custom_cmd_data.id)
+    status = eki_getint("MOTION_EKI", "RobotCommand/CustomCmd/@CmdIndex", command.custom_cmd_data.index)
+    status = eki_getint("MOTION_EKI", "RobotCommand/CustomCmd/@ParamsCount", command.custom_cmd_data.params_count)
    
    return true
 endfct

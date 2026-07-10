@@ -1,0 +1,153 @@
+&ACCESS RVP
+&REL 48
+def param_eki()
+
+end
+
+
+def init_param_interface()
+   decl eki_status status
+   msgnotify("Init param interface", "Param EKI")
+
+   global interrupt decl 20 when $flag[4] == false do close_param_interface()
+   interrupt on 20
+
+   status = eki_init("PARAM_EKI")
+   status = eki_open("PARAM_EKI")
+end
+
+
+def reset_param_interface()
+   decl eki_status status
+   msgnotify("Reset param interface", "Param EKI")
+
+   status = eki_clear("PARAM_EKI")
+   status = eki_init("PARAM_EKI")
+   status = eki_open("PARAM_EKI")
+end
+
+
+def close_param_interface()
+   decl eki_status status
+   msgnotify("Close param interface", "Param EKI")
+   status = eki_close("PARAM_EKI")
+end
+
+
+deffct bool has_param()
+   decl eki_status status
+
+   if not $flag[4] then
+      return false
+   endif
+
+   status = eki_checkbuffer("PARAM_EKI", "CustomParam/@Id")
+   return status.buff > 0
+endfct
+
+
+deffct int read_param_sequence(expected_count :in)
+   decl int expected_count
+   decl int count
+   decl int error_code
+
+   error_code = 0
+   count = 0
+   while has_param() do
+      if read_param() then
+         count = count + 1
+      endif
+   endwhile
+   if count < expected_count then
+      error_code = 3
+   endif
+   return error_code
+endfct
+
+
+deffct bool read_param()
+   decl int param_id
+   decl int param_type
+   decl int param_index
+   decl char param_value[256]
+   decl eki_status status
+   decl int i
+
+   param_id = 0
+   status = eki_getint("PARAM_EKI", "CustomParam/@Id", param_id)
+
+   if param_id <> current_param_id then
+      decl int tmp_type
+      decl int tmp_index
+      decl char tmp_value[256]
+      for i = 1 to 256
+         tmp_value[i] = " "
+      endfor
+      status = eki_getint("PARAM_EKI", "CustomParam/@Type", tmp_type)
+      status = eki_getint("PARAM_EKI", "CustomParam/@Index", tmp_index)
+      status = eki_getstring("PARAM_EKI", "CustomParam/Value", tmp_value[])
+      return false
+   endif
+
+   param_type = 0
+   param_index = 0
+   for i = 1 to 256
+      param_value[i] = " "
+   endfor
+
+   status = eki_getint("PARAM_EKI", "CustomParam/@Type", param_type)
+   status = eki_getint("PARAM_EKI", "CustomParam/@Index", param_index)
+   status = eki_getstring("PARAM_EKI", "CustomParam/Value", param_value[])
+
+   if param_index < 1 then
+      return false
+   endif
+
+   switch param_type
+      case 1
+         if param_index <= 8 then
+            for i = 1 to 128
+               STR_PARAM[param_index, i] = param_value[i]
+            endfor
+         endif
+      case 2
+         if param_index <= 32 then
+            CAST_FROM(param_value[], 0, REAL_PARAM[param_index])
+         endif
+      case 3
+         if param_index <= 32 then
+            CAST_FROM(param_value[], 0, INT_PARAM[param_index])
+         endif
+      case 4
+         if param_index <= 32 then
+            CAST_FROM(param_value[], 0, BOOL_PARAM[param_index])
+         endif
+      case 5
+         if param_index <= 8 then
+            CAST_FROM(param_value[], 0, FRAME_PARAM[param_index])
+         endif
+   endswitch
+
+   return true
+endfct
+
+
+def initialize_params()
+   decl int i
+   decl int j
+
+   current_param_id = 0
+
+   for i = 1 to 32
+      INT_PARAM[i] = 0
+      REAL_PARAM[i] = 0.0
+      BOOL_PARAM[i] = false
+   endfor
+
+   for i = 1 to 8
+      FRAME_PARAM[i] = { x 0, y 0, z 0, a 0, b 0, c 0 }
+      for j = 1 to 128
+         STR_PARAM[i, j] = " "
+      endfor
+   endfor
+end

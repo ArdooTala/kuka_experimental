@@ -1,0 +1,10 @@
+&ACCESS RVP
+&REL 48
+defdat param_eki
+   global int INT_PARAM[32]
+   global real REAL_PARAM[32]
+   global bool BOOL_PARAM[32]
+   global frame FRAME_PARAM[8]
+   global char STR_PARAM[8,128]
+   global int current_param_id
+enddat

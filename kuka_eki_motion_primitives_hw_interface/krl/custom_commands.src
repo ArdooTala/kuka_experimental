@@ -8,11 +8,11 @@ deffct int do_custom_command(custom_cmd_data :in, cmd_id :in)
     case 1
       home_all()
     case 2
-      show_MsgNotify(custom_cmd_data.input_params[])
+      show_MsgNotify()
     case 3
       custom_command_1()
     case 4
-      custom_cmd_w_param(custom_cmd_data.input_params[])
+      custom_cmd_w_param()
     default
       error_code = 2
 
@@ -29,24 +29,24 @@ def custom_command_1()
   $OUT[51]=FALSE
 end
 
-def show_MsgNotify(msg[] :in)
-  decl char msg[]
-
-  decl char msg_text[80]
+def show_MsgNotify()
+  decl char msg_text[128]
   decl int i
 
-  for i=1 to 80
-    msg_text[i]=msg[i]
+  for i = 1 to 128
+    msg_text[i] = STR_PARAM[1, i]
   endfor
   MsgNotify("Input Param: %1", "EKICustomCommand", , msg_text[], )
 end
 
-def custom_cmd_w_param(input_param[] :in)
-  decl char input_param[]
+def custom_cmd_w_param()
+  decl char msg[26]
+  decl int i
 
-  decl int valueInt
-  valueInt=0
-  CAST_FROM(custom_cmd_data.input_params[],0,valueInt)
-  MsgNotify("Input Param: %1", "EKICustomCommand", valueInt, , )
+  for i = 1 to 26
+    msg[i] = STR_PARAM[1, i]
+  endfor
+
+  MsgNotifyTextPar("[NUM]: %2 - [MSG]: %1", "EKICustomCommand", INT_PARAM[1], msg[], , 1111)
 end
 

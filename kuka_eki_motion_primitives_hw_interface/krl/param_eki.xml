@@ -1,0 +1,35 @@
+<ETHERNETKRL>
+   <CONFIGURATION>
+      <EXTERNAL>
+         <TYPE>Client</TYPE>                       <!-- Users connect as clients -->
+      </EXTERNAL>
+      <INTERNAL>
+         <ENVIRONMENT>Program</ENVIRONMENT>        <!-- Server run via robot interpreter (Program / Submit / System) -->
+         <BUFFSIZE limit="256" />
+         <BUFFERING Mode="FIFO" Limit="16" />     <!-- Mode: FIFO /LIFO | Limit: Buffering up to *limit* messages (system max) -->
+         <ALIVE Set_Flag="4" />                    <!-- Use $flag[4] to indicate alive/good connection status -->
+         <IP>172.31.1.147</IP>                    <!-- IP address for EKI interface on robot controller (KRC) -->
+         <PORT>54602</PORT>                        <!-- Port of EKI interface on robot controller [54600, 54615] -->
+         <PROTOCOL>TCP</PROTOCOL>                  <!-- Use TCP / UDP protocol -->
+      </INTERNAL>
+   </CONFIGURATION>
+   
+   <RECEIVE>
+      <XML>
+         <!-- Command -->
+         <ELEMENT Tag="CustomParam/@Id" Type="INT"/>
+         <ELEMENT Tag="CustomParam/@Type" Type="INT"/> <!-- Type: 1=STRING, 2=REAL, 3=INT, 4=BOOL, 5=FRAME -->
+         <ELEMENT Tag="CustomParam/@Index" Type="INT"/>
+         <ELEMENT Tag="CustomParam/Value" Type="STRING"/>
+      </XML>
+   </RECEIVE>
+   
+   <SEND>
+      <XML>
+         <ELEMENT Tag="CustomParamState/@Id"/>
+         <!-- Error -->
+         <ELEMENT Tag="CustomParamState/Error/@Code"/>
+         <ELEMENT Tag="CustomParamState/Error/@Message"/>
+      </XML>
+   </SEND>
+</ETHERNETKRL>
