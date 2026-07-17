@@ -222,7 +222,7 @@ def main(args=None):
                 if not qu:
                     continue
 
-                recv_msg = qu.pop()
+                recv_msg = qu.pop(0)
                 # Parse the received XML and update the joint position and command ID
                 parsed_data = parse_eki_xml_sen(recv_msg)
                 node.get_logger().info(f"Parsed Data:\n{parsed_data}")
