@@ -24,20 +24,14 @@
 
 bool rbt::Robot::is_connected()
 {
-    return (!interface_used_ || interface_.is_connected()) && (!meta_interface_used_ || meta_interface_.is_connected());
+    return (!interface_used_ || interface_.is_connected());
 }
 
 bool rbt::Robot::connect(const std::string &host, int port, int meta_port)
 {
     std::cout << "[Robot] Trying to connect to the host: [" << host << "], port: [" << port << "], meta_port: [" << meta_port << "]" << std::endl;
     interface_used_ = port > 0;
-    meta_interface_used_ = meta_port > 0;
     
-    if (meta_interface_used_)
-    {
-        connect_to(meta_interface_, host, meta_port);
-    }
-
     if (interface_used_)
     {
         connect_to(interface_, host, port);
@@ -63,12 +57,6 @@ void rbt::Robot::disconnect()
     {
         std::cout << "[Robot] Disconnecting EKI Interface ..." << std::endl;
         interface_.disconnect();
-    }
-
-    if (meta_interface_used_)
-    {
-        std::cout << "[Robot] Disconnecting Meta EKI Interface ..." << std::endl;
-        meta_interface_.disconnect();
     }
 }
 
@@ -110,7 +98,6 @@ void rbt::Robot::pause_commands()
     if (!commands_paused_)
     {
         commands_paused_ = true;
-        send_meta();
     }
 }
 
@@ -119,18 +106,17 @@ void rbt::Robot::continue_commands()
     if (commands_paused_)
     {
         commands_paused_ = false;
-        send_meta();
     }
 }
 
 void rbt::Robot::abort_commands()
 {
-    send_meta(true);
+    send_abort(true);
 }
 
 void rbt::Robot::reset_abort_commands()
 {
-    send_meta(false);
+    send_abort(false);
 }
 
 void rbt::Robot::set_velocity(float value)
@@ -141,7 +127,6 @@ void rbt::Robot::set_velocity(float value)
 
         if (!commands_paused_)
         {
-            send_meta();
         }
     }
 }
@@ -190,18 +175,16 @@ void rbt::Robot::send_sequence()
     int size = interface_.send(writer.get_string());
 }
 
-void rbt::Robot::send_meta(bool abort_commands)
+void rbt::Robot::send_abort(bool abort)
 {
-    rbt::MetaCommand command;
-    command.velocity_override = commands_paused_ ? 0.0f : velocity_override_;
-    command.abort_commands = abort_commands;
+    rbt::AbortCommand command{abort};
 
     XmlWriter writer;
     writer.add_prolog();
 
     command.to_xml(writer);
 
-    int size = meta_interface_.send(writer.get_string());
+    int size = interface_.send(writer.get_string());
 }
 
 void rbt::Robot::connect_to(rbt::EKInterface &interface, const std::string &host, int port)
@@ -230,12 +213,6 @@ void rbt::Robot::spin()
         {
             std::string xml = collect_state_xml(interface_, buffer, "RobotState");
             update_state(xml, false);
-        }
-
-        if (meta_interface_used_)
-        {
-            std::string meta_xml = collect_state_xml(meta_interface_, meta_buffer, "MetaState");
-            update_state(meta_xml, true);
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(loop_delay_));
@@ -270,15 +247,8 @@ void rbt::Robot::update_state(std::string &xml_message, bool is_meta)
 
         if (!reader.has_error())
         {
-            if (is_meta)
-            {
-                meta_state_.from_xml(reader);
-            }
-            else
-            {
-                state_.from_xml(reader);
-                active_sequence_.update(state_);
-            }
+            state_.from_xml(reader);
+            active_sequence_.update(state_);
 
             call_listener(RobotEvent::STATE);
 

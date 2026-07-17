@@ -25,6 +25,7 @@
 #include <eki_communication/core/EKInterface.h>
 #include <eki_communication/core/CommandSequence.h>
 #include <eki_communication/MetaCommand.h>
+#include <eki_communication/AbortCommand.h>
 #include <eki_communication/RobotState.h>
 #include <eki_communication/RobotMetaState.h>
 
@@ -34,15 +35,12 @@ namespace rbt
     {
     private:
         EKInterface interface_;
-        EKInterface meta_interface_;
 
         int reconnect_delay_ = 1000;
         int loop_delay_ = 20;
         bool interface_used_ = false;
-        bool meta_interface_used_ = false;
 
         RobotState state_;
-        RobotMetaState meta_state_;
         CommandSequence active_sequence_;
         CommandSequence waiting_sequence_;
 
@@ -59,7 +57,7 @@ namespace rbt
 
         void perform(const Command &command);
         void send_sequence();
-        void send_meta(bool abort_commands = false);
+        void send_abort(bool abort = true);
 
     public:
         Robot() : Component("rbt::Robot") {}
@@ -87,7 +85,6 @@ namespace rbt
         bool is_active() { return !active_sequence_.is_finished(); }
         bool robot_in_movement();
         RobotState get_state() { return state_; }
-        RobotMetaState get_meta_state() { return meta_state_; }
         float get_velocity_override() { return velocity_override_; }
         bool commands_paused() { return commands_paused_; }
 

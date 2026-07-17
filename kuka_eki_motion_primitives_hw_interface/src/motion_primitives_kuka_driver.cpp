@@ -31,11 +31,6 @@ MotionPrimitivesKukaDriver::~MotionPrimitivesKukaDriver()
     async_execute_motion_thread_->join();
     async_execute_motion_thread_.reset();
   }
-  if (async_execute_motion_thread_ && async_stop_motion_thread_->joinable()) 
-  {
-    async_stop_motion_thread_->join();
-    async_stop_motion_thread_.reset();
-  }
 }
 hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
   const hardware_interface::HardwareInfo & info)
@@ -99,7 +94,6 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_configure(
 {
   RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Configuring Hardware Interface ...");
   async_execute_motion_thread_ = std::make_unique<std::thread>(&MotionPrimitivesKukaDriver::asyncExecuteMotionThread, this);
-  async_stop_motion_thread_ = std::make_unique<std::thread>(&MotionPrimitivesKukaDriver::asyncStopMotionThread, this);
   return CallbackReturn::SUCCESS;
 }
 
@@ -569,9 +563,13 @@ void MotionPrimitivesKukaDriver::reset_command_interfaces()
   std::fill(hw_mo_prim_commands_.begin(), hw_mo_prim_commands_.end(), std::numeric_limits<double>::quiet_NaN());
 }
 
-void MotionPrimitivesKukaDriver::asyncStopMotionThread()
+void MotionPrimitivesKukaDriver::asyncExecuteMotionThread()
 {
-   while (!async_thread_shutdown_) {
+  const auto TIMEOUT_DURATION = std::chrono::seconds(5);
+  std::chrono::time_point start_time = std::chrono::steady_clock::now();
+  bool pending_execution = false;
+  while (!async_thread_shutdown_) 
+  {
     if (new_stop_available_) {
       std::lock_guard<std::mutex> guard(stop_mutex_);
       new_stop_available_ = false;
@@ -586,6 +584,8 @@ void MotionPrimitivesKukaDriver::asyncStopMotionThread()
       }
       RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Robot stopped");
       robot_stopped_ = true;
+      pending_execution = false;
+      continue;
     } else if (new_reset_available_) {
       std::lock_guard<std::mutex> guard(stop_mutex_);
       new_reset_available_ = false;
@@ -596,43 +596,38 @@ void MotionPrimitivesKukaDriver::asyncStopMotionThread()
       }
       RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Robot reset stop done");
       robot_stopped_ = false;
-      ready_for_new_primitive_ = true;
+      continue;
     }
-    // Small sleep to prevent busy waiting
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  }
-  RCLCPP_INFO(rclcpp::get_logger("URPositionHardwareInterface"), "[asyncMoprimStopThread] Exiting");
-}
-
-
-void MotionPrimitivesKukaDriver::asyncExecuteMotionThread()
-{
-  const auto TIMEOUT_DURATION = std::chrono::seconds(5);
-  while (!async_thread_shutdown_) 
-  {
-    if (new_execution_available_) 
-    {
+    if (robot_stopped_)
+        continue;
+    if (pending_execution) {
+      if (robot_.run())
+      {
+        RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Sent command to robot successfully.");
+        pending_execution = false;
+        continue;
+      }
+      // Check if the timeout has been reached
+      if (std::chrono::steady_clock::now() - start_time > TIMEOUT_DURATION) 
+      {
+        RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Timeout reached: Failed to send command to robot.");
+        return;
+      }
+      continue;
+    }
+    if (new_execution_available_) {
       std::lock_guard<std::mutex> guard(execution_mutex_);
       new_execution_available_ = false;
       RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Sending command to robot ...");
-      auto start_time = std::chrono::steady_clock::now();
+      start_time = std::chrono::steady_clock::now();
+      pending_execution = true;
       // Store last command ID to check if it was executed
       RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Last command ID: %d", robot_.last_command_id_of_sequence());
       checkCommandIdDoneQueue.push(robot_.last_command_id_of_sequence());
-      while (!robot_.run()) 
-      {
-        // Check if the timeout has been reached
-        if (std::chrono::steady_clock::now() - start_time > TIMEOUT_DURATION) 
-        {
-          RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Timeout reached: Failed to send command to robot.");
-          return;
-        }
-        // Small sleep to prevent busy waiting
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      }
-      RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Sent command to robot successfully.");
-      ready_for_new_primitive_ = true;
+      continue;
     }
+
+    ready_for_new_primitive_ = true;
 
     // Small sleep to prevent busy waiting
     std::this_thread::sleep_for(std::chrono::milliseconds(10));

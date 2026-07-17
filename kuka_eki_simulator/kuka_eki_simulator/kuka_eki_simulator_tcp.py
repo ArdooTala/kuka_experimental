@@ -161,14 +161,12 @@ def main(args=None):
     parser = argparse.ArgumentParser(description='KUKA EKI Simulation over TCP')
     parser.add_argument('--eki_hw_iface_ip', default="127.0.0.1", help='The IP address of the EKI control interface (default=127.0.0.1)')
     parser.add_argument('--eki_hw_iface_motion_port', default=54600, help='The port of the EKI control motion interface (default=54600)')
-    parser.add_argument('--eki_hw_iface_meta_port', default=54601, help='The port of the EKI control meta interface (default=54600)')
     parser.add_argument('--sen', default='ImFree', help='Type attribute in EKI XML doc. E.g. <Sen Type:"ImFree">')
 
     # Parse known arguments
     args, _ = parser.parse_known_args()
     host = args.eki_hw_iface_ip
     port_motion = int(args.eki_hw_iface_motion_port)
-    port_meta = int(args.eki_hw_iface_meta_port)
     sen_type = args.sen
 
     # Configuration
@@ -192,18 +190,13 @@ def main(args=None):
 
     # Accept incoming connection
     t_motion = threading.Thread(target=setup_and_accept, args=(host, port_motion, 'motion', connections, conn_lock, node))
-    t_meta = threading.Thread(target=setup_and_accept, args=(host, port_meta, 'meta', connections, conn_lock, node))
 
     t_motion.start()
-    t_meta.start()
 
     t_motion.join()
-    t_meta.join()
 
     conn_motion = connections['motion']['conn']
     s_motion = connections['motion']['sock']
-    conn_meta = connections['meta']['conn']
-    s_meta = connections['meta']['sock']
 
     conn_motion.settimeout(1)
 
@@ -275,8 +268,6 @@ def main(args=None):
         node.get_logger().info(f"Shutting down '{node_name}' node.")
         conn_motion.close()  # Close the TCP connection
         s_motion.close()  # Close the socket
-        conn_meta.close()  # Close the TCP connection
-        s_meta.close()  # Close the socket
 
     rclpy.shutdown()
 
