@@ -180,6 +180,7 @@ def main(args=None):
     conn_motion.settimeout(1)
 
     try:
+        qu = []
         while rclpy.ok():
             time.sleep(0.001)  # FIXME: make this a ros2 node
             try:
@@ -189,25 +190,37 @@ def main(args=None):
                 msg.data = str(str_data)
                 eki_act_pub.publish(msg)
                 conn_motion.send(str_data)  # Send data over TCP
-                node.get_logger().info(f"Sent XML:\n{str_data.decode('utf-8')}")
+                node.get_logger().debug(f"Sent XML:\n{str_data.decode('utf-8')}")
 
                 # Receive the command message
+                recv_msg = None
                 try:
-                    recv_msg = conn_motion.recv(1024)
-                except socket.timeout:
-                    continue
-                if not recv_msg:
-                    break  # No data received, close connection
-                node.get_logger().info(f"Received XML:\n{recv_msg.decode('utf-8')}")
-                msg = String()
-                msg.data = str(recv_msg)
-                eki_cmd_pub.publish(msg)
+                    recv_msg = conn_motion.recv(8192)
+                    if not recv_msg:
+                        break  # No data received, close connection
 
+                    node.get_logger().info(f"Received XML:\n---\n{recv_msg.decode('utf-8')}\n---\n")
+                    msg = String()
+                    msg.data = str(recv_msg)
+                    eki_cmd_pub.publish(msg)
+
+                    delim = b"</RobotCommand>"
+                    data = [cm + delim for cm in recv_msg.split(delim) if cm.strip()]
+                    qu += data
+                except socket.timeout:
+                    # continue
+                    pass
+
+                node.get_logger().info(f"Queue Len: {len(qu)}")
+                if not qu:
+                    continue
+
+                recv_msg = qu.pop(0)
                 # Parse the received XML and update the joint position and command ID
                 parsed_data = parse_eki_xml_sen(recv_msg)
                 node.get_logger().info(f"Parsed Data:\n{parsed_data}")
 
-                if parsed_data is not None and parsed_data['joint_positions'] is None:
+                if parsed_data is None or parsed_data['joint_positions'] is None:
                     continue
 
                 act_joint_pos = parsed_data['joint_positions']
