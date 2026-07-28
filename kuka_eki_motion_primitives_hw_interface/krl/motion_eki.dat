@@ -35,4 +35,9 @@ defdat motion_eki
    decl int ShiftPosition
    decl int WorkPosition
    decl int TeachPosition
+   
+   SIGNAL disig1 $IN[1..32]
+   SIGNAL disig2 $IN[33..64]
+   SIGNAL dosig1 $OUT[1..32]
+   SIGNAL dosig2 $OUT[33..64]
 enddat

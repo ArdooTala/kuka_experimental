@@ -59,6 +59,7 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
   // State interfaces for the motion_primitive_forward_controller
   hw_mo_prim_states_.resize(2, std::numeric_limits<double>::quiet_NaN());     // execution_status, ready_for_new_primitive
   hw_mo_prim_commands_.resize(25, std::numeric_limits<double>::quiet_NaN());  // motion_type + 6 joints + 2*7 positions + blend_radius + velocity + acceleration + move_time
+  hw_digital_io_states_.resize(4, std::numeric_limits<double>::quiet_NaN());  // [disig1, disig2, dosig1, dosig2]
 
   return CallbackReturn::SUCCESS;
 }
@@ -93,6 +94,12 @@ std::vector<hardware_interface::StateInterface> MotionPrimitivesKukaDriver::expo
   // State interfaces for the motion_primitive_forward_controller
   state_interfaces.emplace_back(hardware_interface::StateInterface("motion_primitive", "execution_status", &hw_mo_prim_states_[0]));
   state_interfaces.emplace_back(hardware_interface::StateInterface("motion_primitive", "ready_for_new_primitive", &hw_mo_prim_states_[1]));
+
+  // State interfaces for digital IO
+  state_interfaces.emplace_back(hardware_interface::StateInterface("digital_input", "group_0", &hw_digital_io_states_[0]));
+  state_interfaces.emplace_back(hardware_interface::StateInterface("digital_input", "group_1", &hw_digital_io_states_[1]));
+  state_interfaces.emplace_back(hardware_interface::StateInterface("digital_output", "group_0", &hw_digital_io_states_[2]));
+  state_interfaces.emplace_back(hardware_interface::StateInterface("digital_output", "group_1", &hw_digital_io_states_[3]));
 
   return state_interfaces;
 }
@@ -229,6 +236,11 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::read(
 
   hw_mo_prim_states_[0] = static_cast<uint8_t>(current_execution_status_);
   hw_mo_prim_states_[1] = static_cast<double>(ready_for_new_primitive_);
+
+  hw_digital_io_states_[0] = static_cast<double>(static_cast<uint32_t>(robot_state.disig1));
+  hw_digital_io_states_[1] = static_cast<double>(static_cast<uint32_t>(robot_state.disig2));
+  hw_digital_io_states_[2] = static_cast<double>(static_cast<uint32_t>(robot_state.dosig1));
+  hw_digital_io_states_[3] = static_cast<double>(static_cast<uint32_t>(robot_state.dosig2));
 
   return hardware_interface::return_type::OK;
 }

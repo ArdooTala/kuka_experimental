@@ -46,11 +46,11 @@ def motion_eki()
    
    init_interface()
    current_command = null_command()
-   CURRENT_COMMAND_ID = 0
-   LAST_FINISHED_MOVE_ID = 0
-   ROBOT_STOPPED = false   ; global variable
-   
-   act_joint_vel = 1.0   ; 100%
+    CURRENT_COMMAND_ID = 0
+    LAST_FINISHED_MOVE_ID = 0
+    ROBOT_STOPPED = false   ; global variable
+    
+    act_joint_vel = 1.0   ; 100%
    act_joint_acc = 1.0   ; 100%
    act_cart_vel = 0 ; modify default value if needed
    act_cart_acc = 0 ; modify default value if needed
@@ -220,9 +220,15 @@ def send_status()
       ;status = eki_setbool("MOTION_EKI", "RobotState/Gripper/Vacuum/@Suction", $out[1230])
       ;status = eki_setbool("MOTION_EKI", "RobotState/Gripper/Vacuum/@Force1", $in[1230])  ;VakuumSensor1
       ;status = eki_setbool("MOTION_EKI", "RobotState/Gripper/Vacuum/@Force2", $in[1231])  ;VakuumSensor2
-      ;status = eki_setbool("MOTION_EKI", "RobotState/Gripper/Vacuum/@Cylinder", $in[1228])
-      
-      if has_connection() then
+       ;status = eki_setbool("MOTION_EKI", "RobotState/Gripper/Vacuum/@Cylinder", $in[1228])
+       
+       ; Digital IO
+       status = eki_setint("MOTION_EKI", "RobotState/IO/DI/@Sig1", disig1)
+       status = eki_setint("MOTION_EKI", "RobotState/IO/DI/@Sig2", disig2)
+       status = eki_setint("MOTION_EKI", "RobotState/IO/DO/@Sig1", dosig1)
+       status = eki_setint("MOTION_EKI", "RobotState/IO/DO/@Sig2", dosig2)
+       
+       if has_connection() then
          status = eki_send("MOTION_EKI", "RobotState")
       endif
    endif
