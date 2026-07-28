@@ -60,6 +60,7 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
   hw_mo_prim_states_.resize(2, std::numeric_limits<double>::quiet_NaN());     // execution_status, ready_for_new_primitive
   hw_mo_prim_commands_.resize(25, std::numeric_limits<double>::quiet_NaN());  // motion_type + 6 joints + 2*7 positions + blend_radius + velocity + acceleration + move_time
   hw_digital_io_states_.resize(4, std::numeric_limits<double>::quiet_NaN());  // [disig1, disig2, dosig1, dosig2]
+  hw_digital_io_commands_.resize(4, std::numeric_limits<double>::quiet_NaN());  // [do1_value, do1_mask, do2_value, do2_mask]
 
   return CallbackReturn::SUCCESS;
 }
@@ -140,6 +141,12 @@ std::vector<hardware_interface::CommandInterface> MotionPrimitivesKukaDriver::ex
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "velocity", &hw_mo_prim_commands_[22]));
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "acceleration", &hw_mo_prim_commands_[23]));
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "move_time", &hw_mo_prim_commands_[24]));
+
+  // Command interfaces for digital IO
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("digital_output", "group_0_value", &hw_digital_io_commands_[0]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("digital_output", "group_0_mask", &hw_digital_io_commands_[1]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("digital_output", "group_1_value", &hw_digital_io_commands_[2]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("digital_output", "group_1_mask", &hw_digital_io_commands_[3]));
 
   return command_interfaces;
 }
@@ -349,7 +356,27 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::write(
         return hardware_interface::return_type::ERROR;
       }
     }
-  } 
+  }
+
+  // Check if we have a new IO command
+  if (!std::isnan(hw_digital_io_commands_[0]))
+  {
+    RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Digital IO command received");
+    rbt::IoCommand io_cmd(
+        static_cast<int>(hw_digital_io_commands_[0]),
+        static_cast<int>(hw_digital_io_commands_[1]),
+        static_cast<int>(hw_digital_io_commands_[2]),
+        static_cast<int>(hw_digital_io_commands_[3]));
+    robot_.perform(io_cmd);
+    {
+      std::lock_guard<std::mutex> guard(execution_mutex_);
+      if (!new_execution_available_) {
+        new_execution_available_ = true;
+      }
+    }
+    std::fill(hw_digital_io_commands_.begin(), hw_digital_io_commands_.end(), std::numeric_limits<double>::quiet_NaN());
+  }
+
   return hardware_interface::return_type::OK;
 }
 

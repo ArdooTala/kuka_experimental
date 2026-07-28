@@ -72,6 +72,7 @@ private:
   std::vector<double> hw_mo_prim_states_;
   std::vector<double> hw_mo_prim_commands_;
   std::vector<double> hw_digital_io_states_;
+  std::vector<double> hw_digital_io_commands_;
 
   MoprimExecutionState current_execution_status_{MoprimExecutionState::IDLE};
   std::atomic_bool ready_for_new_primitive_{false}; // Flag to indicate if the hw-interface is ready for a new motion primitive

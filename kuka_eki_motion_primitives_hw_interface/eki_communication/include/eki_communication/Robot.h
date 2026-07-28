@@ -25,6 +25,7 @@
 #include <eki_communication/core/EKInterface.h>
 #include <eki_communication/core/CommandSequence.h>
 #include <eki_communication/MetaCommand.h>
+#include <eki_communication/IoCommand.h>
 #include <eki_communication/RobotState.h>
 #include <eki_communication/RobotMetaState.h>
 
@@ -73,6 +74,7 @@ namespace rbt
 
         void perform(const MoveCommand &move);
         void perform(const GripCommand &grip);
+        void perform(const IoCommand &io);
         void perform(const MoveCommand &move, const GripCommand &grip);
 
         bool auto_run = false;

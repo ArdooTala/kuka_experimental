@@ -18,6 +18,7 @@
 //          Mathias Fuhrer
 
 #include <eki_communication/Command.h>
+#include <eki_communication/IoCommand.h>
 
 int rbt::Command::max_id_ = 0;
 
@@ -31,6 +32,12 @@ rbt::Command::Command(const GripCommand &grip) : Command()
 {
     type_ = CommandType::GRIP;
     grip_ = grip;
+}
+
+rbt::Command::Command(const IoCommand &io) : Command()
+{
+    type_ = CommandType::IO;
+    io_ = io;
 }
 
 rbt::Command::Command(const MoveCommand &move, const GripCommand &grip) : Command()
@@ -47,6 +54,7 @@ void rbt::Command::to_xml(XmlWriter &writer) const
 
     move_.to_xml(writer);
     grip_.to_xml(writer);
+    io_.to_xml(writer);
 
     writer.close_element();
 }

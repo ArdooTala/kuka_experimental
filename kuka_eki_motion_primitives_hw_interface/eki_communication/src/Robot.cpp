@@ -90,6 +90,11 @@ void rbt::Robot::perform(const GripCommand &grip)
     perform(Command(grip));
 }
 
+void rbt::Robot::perform(const IoCommand &io)
+{
+    perform(Command(io));
+}
+
 void rbt::Robot::perform(const MoveCommand &move, const GripCommand &grip)
 {
     perform(Command(move, grip));
