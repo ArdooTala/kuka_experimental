@@ -18,7 +18,6 @@
 //          Mathias Fuhrer
 
 #include <eki_communication/Command.h>
-#include <eki_communication/IoCommand.h>
 
 int rbt::Command::max_id_ = 0;
 
