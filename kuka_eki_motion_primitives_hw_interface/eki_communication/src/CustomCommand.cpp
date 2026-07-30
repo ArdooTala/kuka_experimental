@@ -18,19 +18,9 @@
 //          Mathias Fuhrer
 
 #include <eki_communication/CustomCommand.h>
-#include <algorithm>
 
 void rbt::CustomCommand::to_xml(XmlWriter &writer) const
 {
-    writer.open_element("Custom");
-    writer.open_element("Cmd", {{"CmdIndex", std::to_string(cmd_index_)}});
-    writer.open_element("Params");
-    auto last_nonzero = std::find_if(input_params_.rbegin(), input_params_.rend(),
-                                     [](uint8_t b) { return b != 0; });
-    size_t len = std::distance(input_params_.begin(), last_nonzero.base());
-    std::string raw(reinterpret_cast<const char *>(input_params_.data()), len);
-    writer.add_content(raw);
-    writer.close_element();
-    writer.close_element();
+    writer.open_element("CustomCmd", {{"CmdIndex", std::to_string(cmd_index_)}});
     writer.close_element();
 }
