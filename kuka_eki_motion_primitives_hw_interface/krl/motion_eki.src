@@ -132,9 +132,6 @@ deffct command_type null_command()
    grip_data.vacuum = vacuum
    
    custom_cmd_data.index = 0
-   for index = 1 to 256
-      custom_cmd_data.input_params[index] = 0
-   endfor
    
    command = { id 0, step 0, type 0}
    command.move_data = move_data
@@ -363,7 +360,6 @@ deffct bool get_command(command :out)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Grip/Vacuum/@Cylinder", command.grip_data.vacuum.cylinder)
    
    status = eki_getint("MOTION_EKI", "RobotCommand/Custom/Cmd/@CmdIndex", command.custom_cmd_data.index)
-   status = eki_getstring("MOTION_EKI", "RobotCommand/Custom/Cmd/Params", command.custom_cmd_data.input_params[])
    
    return true
 endfct

@@ -66,8 +66,7 @@
          <ELEMENT Tag="RobotCommand/Grip/Vacuum/@Suction" Type="INT"/>
          <ELEMENT Tag="RobotCommand/Grip/Vacuum/@Cylinder" Type="REAL"/>
          <!-- Custom command -->
-         <ELEMENT TAG="RobotCommand/Custom/Cmd/@CmdIndex" Type="INT"/>
-         <ELEMENT TAG="RobotCommand/Custom/Cmd/Params" Type="STRING"/>
+         <ELEMENT TAG="RobotCommand/CustomCmd/@CmdIndex" Type="INT"/>
       </XML>
    </RECEIVE>
    
