@@ -55,7 +55,7 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
 
   // State interfaces for the motion_primitive_forward_controller
   hw_mo_prim_states_.resize(2, std::numeric_limits<double>::quiet_NaN());     // execution_status, ready_for_new_primitive
-  hw_mo_prim_commands_.resize(31, std::numeric_limits<double>::quiet_NaN());  // motion_type + 6 joints + 6 external joints + 7 positions + 7 via positions + blend_radius + velocity + acceleration + move_time
+  hw_mo_prim_commands_.resize(32, std::numeric_limits<double>::quiet_NaN());  // motion_type + 6 joints + 6 external joints + 7 positions + 7 via positions + blend_radius + velocity + acceleration + move_time + custom_cmd_index
 
   // Cache external axis types (indices 6-11 map to external joints e1-e6)
   ext_axis_types_.assign(6, rbt::ExtAxisType::UNKNOWN);
@@ -167,12 +167,13 @@ std::vector<hardware_interface::CommandInterface> MotionPrimitivesKukaDriver::ex
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "velocity", &hw_mo_prim_commands_[22]));
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "acceleration", &hw_mo_prim_commands_[23]));
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "move_time", &hw_mo_prim_commands_[24]));
+  // Custom command index
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "custom_cmd_index", &hw_mo_prim_commands_[25]));
   // External joint position commands (e1, e2, ..., e6)
   for (size_t i = 0; i < info_.joints.size() - 6; ++i)
   {
-    command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e" + std::to_string(i + 1), &hw_mo_prim_commands_[25 + i]));
+    command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e" + std::to_string(i + 1), &hw_mo_prim_commands_[26 + i]));
   }
-
   // Command interfaces for digital IO
   command_interfaces.emplace_back(hardware_interface::CommandInterface("digital_output", "group_0_value", &hw_digital_io_commands_[0]));
   command_interfaces.emplace_back(hardware_interface::CommandInterface("digital_output", "group_0_mask", &hw_digital_io_commands_[1]));
@@ -421,6 +422,20 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::write(
         }
         break;
       }
+      case static_cast<uint8_t>(MoprimMotionHelperType::CUSTOM_CMD): {
+        RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "CUSTOM_COMMAND received with index: %f", hw_mo_prim_commands_[25]);
+        if(!add_custom_cmd()) {
+          RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Failed to execute custom command");
+          robot_error_ = true;
+          return hardware_interface::return_type::ERROR;
+        }
+        reset_command_interfaces();
+        std::lock_guard<std::mutex> guard(execution_mutex_);
+        if (!new_execution_available_) {
+          new_execution_available_ = true;
+        }
+        break;
+      }
       default: {
         RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Invalid motion command: motion type %f is not supported", motion_type);
         robot_error_ = true;
@@ -540,17 +555,44 @@ bool MotionPrimitivesKukaDriver::add_circular_cartesian_cmd()
   return true;
 }
 
+bool MotionPrimitivesKukaDriver::add_set_io_cmd()
+{
+  rbt::IoCommand command {
+        static_cast<int>(hw_digital_io_commands_[0]),
+        static_cast<int>(hw_digital_io_commands_[1]),
+        static_cast<int>(hw_digital_io_commands_[2]),
+        static_cast<int>(hw_digital_io_commands_[3])
+  };
+  RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Added SET_IO command");
+  robot_.perform(command);
+
+  return true;
+}
+
+bool MotionPrimitivesKukaDriver::add_custom_cmd()
+{
+  int cmd_index = static_cast<int>(hw_mo_prim_commands_[25]);
+  if (std::isnan(hw_mo_prim_commands_[25])) {
+    RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "custom_cmd_index is NaN");
+    return false;
+  }
+  // TODO(anyone): read custom_cmd_params from command interfaces when implemented
+  static constexpr std::array<uint8_t, 256> empty_params{};
+  robot_.perform(rbt::CustomCommand(cmd_index, empty_params));
+  return true;
+}
+
 void MotionPrimitivesKukaDriver::add_ext_axes_to_command(rbt::MoveCommand &command)
 {
   // Check if external joint positions are valid
-  for (int i = 25; i <= 30; ++i) {
+  for (int i = 26; i < 32; ++i) {
   }
 
   constexpr double rad_to_deg = 180.0 / M_PI;
   double converted_vals[6];
 
   for (size_t j = 0; j < 6; ++j) {
-    double raw_val = hw_mo_prim_commands_[25 + j];
+    double raw_val = hw_mo_prim_commands_[26 + j];
     if (std::isnan(raw_val)) {
         RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "External Axis position is NaN");
         converted_vals[j] = std::numeric_limits<double>::quiet_NaN();
@@ -572,20 +614,6 @@ void MotionPrimitivesKukaDriver::add_ext_axes_to_command(rbt::MoveCommand &comma
   command.target_ext_joints.e4 = converted_vals[3];
   command.target_ext_joints.e5 = converted_vals[4];
   command.target_ext_joints.e6 = converted_vals[5];
-}
-
-bool MotionPrimitivesKukaDriver::add_set_io_cmd()
-{
-  rbt::IoCommand command {
-        static_cast<int>(hw_digital_io_commands_[0]),
-        static_cast<int>(hw_digital_io_commands_[1]),
-        static_cast<int>(hw_digital_io_commands_[2]),
-        static_cast<int>(hw_digital_io_commands_[3])
-  };
-  RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Added SET_IO command");
-  robot_.perform(command);
-
-  return true;
 }
 
 void MotionPrimitivesKukaDriver::add_vel_and_acc_to_command(rbt::MoveCommand &command)

@@ -22,6 +22,7 @@
 #include <eki_communication/MoveCommand.h>
 #include <eki_communication/GripCommand.h>
 #include <eki_communication/IoCommand.h>
+#include <eki_communication/CustomCommand.h>
 
 namespace rbt
 {
@@ -35,6 +36,7 @@ namespace rbt
         MoveCommand move_;
         GripCommand grip_;
         IoCommand io_;
+        CustomCommand custom_cmd_;
 
     public:
         Command() : id_(++max_id_) {}
@@ -42,6 +44,7 @@ namespace rbt
         Command(const GripCommand &grip);
         Command(const IoCommand &io);
         Command(const MoveCommand &move, const GripCommand &grip);
+        Command(const CustomCommand &custom);
         ~Command() {}
 
         int id() const { return id_; }

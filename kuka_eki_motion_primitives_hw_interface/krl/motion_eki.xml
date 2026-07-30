@@ -72,13 +72,15 @@
          <ELEMENT Tag="RobotCommand/Grip/Jaw/@DirectionMode" Type="INT"/>
          <!-- Grip vacuum -->
          <ELEMENT Tag="RobotCommand/Grip/Vacuum/@Suction" Type="INT"/>
-          <ELEMENT Tag="RobotCommand/Grip/Vacuum/@Cylinder" Type="REAL"/>
-          <!-- IO command -->
-          <ELEMENT Tag="RobotCommand/IO/DO/Sig1/@Value" Type="INT"/>
-          <ELEMENT Tag="RobotCommand/IO/DO/Sig1/@Mask" Type="INT"/>
-          <ELEMENT Tag="RobotCommand/IO/DO/Sig2/@Value" Type="INT"/>
-          <ELEMENT Tag="RobotCommand/IO/DO/Sig2/@Mask" Type="INT"/>
-       </XML>
+         <ELEMENT Tag="RobotCommand/Grip/Vacuum/@Cylinder" Type="REAL"/>
+         <!-- IO command -->
+         <ELEMENT Tag="RobotCommand/IO/DO/Sig1/@Value" Type="INT"/>
+         <ELEMENT Tag="RobotCommand/IO/DO/Sig1/@Mask" Type="INT"/>
+         <ELEMENT Tag="RobotCommand/IO/DO/Sig2/@Value" Type="INT"/>
+         <ELEMENT Tag="RobotCommand/IO/DO/Sig2/@Mask" Type="INT"/>
+         <!-- Custom command -->
+         <ELEMENT TAG="RobotCommand/CustomCmd/@CmdIndex" Type="INT"/>
+      </XML>
    </RECEIVE>
    
    <SEND>
@@ -140,6 +142,8 @@
          <!-- Error -->
          <ELEMENT Tag="RobotState/Error/@Code"/>
          <ELEMENT Tag="RobotState/Error/@Message"/>
+         <!-- Custom state -->
+         <ELEMENT Tag="RobotState/Custom/State"/>
       </XML>
    </SEND>
 </ETHERNETKRL>

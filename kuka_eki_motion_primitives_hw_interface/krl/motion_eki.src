@@ -96,9 +96,11 @@ def motion_eki()
                check_error(do_move(current_command.step, current_command.move_data, current_command.id))
              case 3
                 check_error(do_grip(current_command.grip_data))
-             case 4
+             case 5
                 check_error(do_io(current_command.io_data))
-          endswitch
+             case 6
+               check_error(do_custom_command(current_command.custom_cmd_data, current_command.id))
+         endswitch
       else
          CURRENT_COMMAND_ID = 0
       endif
@@ -114,6 +116,7 @@ deffct command_type null_command()
    decl vacuum_type vacuum
    decl jaw_type jaw
    decl grip_type grip_data
+   decl custom_cmd_type custom_cmd_data
    decl command_type command
    
    move_data = { mode 0, base_index 0, tool_index 0, wait_for_gripper 0, teached 0, velocity 0, acceleration 0, blending 0}
@@ -130,11 +133,13 @@ deffct command_type null_command()
     grip_data.jaw = jaw
     vacuum = { suction 0, cylinder 0 }
     grip_data.vacuum = vacuum
-    
+    custom_cmd_data.index = 0
+
     command = { id 0, step 0, type 0}
     command.move_data = move_data
     command.grip_data = grip_data
     command.io_data = { sig1_value 0, sig1_mask 0, sig2_value 0, sig2_mask 0 }
+   command.custom_cmd_data = custom_cmd_data
     
     return command
 endfct
@@ -270,6 +275,8 @@ def check_error(error_code :in)
       switch error_code
          case 1
             error_message[] = "Fehler 1"
+         case 2
+            error_message[] = "Invalid Custom Command Index"
          default
             error_message[] = "Unbekannter Fehler"
       endswitch
@@ -407,15 +414,17 @@ deffct bool get_command(command :out)
    status = eki_getint("MOTION_EKI", "RobotCommand/Grip/Jaw/@ShiftPosition", command.grip_data.jaw.shift_pos)
    status = eki_getint("MOTION_EKI", "RobotCommand/Grip/Jaw/@DirectionMode", command.grip_data.jaw.direction_mode)
    
-    status = eki_getint("MOTION_EKI", "RobotCommand/Grip/Vacuum/@Suction", command.grip_data.vacuum.suction)
-    status = eki_getreal("MOTION_EKI", "RobotCommand/Grip/Vacuum/@Cylinder", command.grip_data.vacuum.cylinder)
-    
-    status = eki_getint("MOTION_EKI", "RobotCommand/IO/DO/Sig1/@Value", command.io_data.sig1_value)
-    status = eki_getint("MOTION_EKI", "RobotCommand/IO/DO/Sig1/@Mask", command.io_data.sig1_mask)
-    status = eki_getint("MOTION_EKI", "RobotCommand/IO/DO/Sig2/@Value", command.io_data.sig2_value)
-    status = eki_getint("MOTION_EKI", "RobotCommand/IO/DO/Sig2/@Mask", command.io_data.sig2_mask)
-    
-    return true
+   status = eki_getint("MOTION_EKI", "RobotCommand/Grip/Vacuum/@Suction", command.grip_data.vacuum.suction)
+   status = eki_getreal("MOTION_EKI", "RobotCommand/Grip/Vacuum/@Cylinder", command.grip_data.vacuum.cylinder)
+ 
+   status = eki_getint("MOTION_EKI", "RobotCommand/IO/DO/Sig1/@Value", command.io_data.sig1_value)
+   status = eki_getint("MOTION_EKI", "RobotCommand/IO/DO/Sig1/@Mask", command.io_data.sig1_mask)
+   status = eki_getint("MOTION_EKI", "RobotCommand/IO/DO/Sig2/@Value", command.io_data.sig2_value)
+   status = eki_getint("MOTION_EKI", "RobotCommand/IO/DO/Sig2/@Mask", command.io_data.sig2_mask)
+
+   status = eki_getint("MOTION_EKI", "RobotCommand/Custom/Cmd/@CmdIndex", command.custom_cmd_data.index)
+
+   return true
 endfct
 
 

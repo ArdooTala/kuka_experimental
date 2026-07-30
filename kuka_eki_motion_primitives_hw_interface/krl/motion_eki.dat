@@ -7,7 +7,8 @@ defdat motion_eki
    struc vacuum_type int suction, real cylinder
    struc grip_type int mode, jaw_type jaw, vacuum_type vacuum
    struc io_type int sig1_value, sig1_mask, sig2_value, sig2_mask
-   struc command_type int id, step, type, move_type move_data, grip_type grip_data, io_type io_data
+   struc custom_cmd_type int index
+   struc command_type int id, step, type, move_type move_data, grip_type grip_data, io_type io_data, custom_cmd_type custom_cmd_data
    decl command_type current_command
    decl axis teached_points[10]
    

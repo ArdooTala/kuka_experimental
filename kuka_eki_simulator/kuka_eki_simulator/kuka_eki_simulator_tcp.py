@@ -129,15 +129,11 @@ def parse_eki_xml_sen(data):
             raise ValueError("Missing <Joint> element in <Move> section")
 
         joint_values = []
-        if mode == 1: # Joint mode --> extract joint values from the XML
-            for axis in ['A1', 'A2', 'A3', 'A4', 'A5', 'A6']:
-                axis_value = joint.attrib.get(axis)
-                if axis_value is None:
-                    raise ValueError(f"Missing joint value for {axis}")
-                joint_values.append(float(axis_value))
-        else: # Cartesian mode --> fill joint values with 0.0, since no IK is implemented
-            print(f"[Warning] Cartesian mode detected, using 0.0 joint values, because no IK is implemented.")
-            joint_values = [0.0] * 6
+        for axis in ['A1', 'A2', 'A3', 'A4', 'A5', 'A6']:
+            axis_value = joint.attrib.get(axis)
+            if axis_value is None:
+                raise ValueError(f"Missing joint value for {axis}")
+            joint_values.append(float(axis_value))
 
         result['joint_positions'] = np.array(joint_values, dtype=np.float64)
 
@@ -289,6 +285,9 @@ def main(args=None):
                 if parsed_data['command_type'] == 2:
                     act_joint_pos = parsed_data['joint_positions']
                     ext_ax_pos = parsed_data['ext_joint_positions']
+
+                if parsed_data['command_type'] == 4:
+                    node.get_logger().info(f"Executing Custom CMD")
 
                 if parsed_data['command_type'] == 5:
                     do_val = parsed_data['do_values']

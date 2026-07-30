@@ -40,6 +40,12 @@ rbt::Command::Command(const IoCommand &io) : Command()
     io_ = io;
 }
 
+rbt::Command::Command(const CustomCommand &custom) : Command()
+{
+    type_ = CommandType::CUSTOM;
+    custom_cmd_ = custom;
+}
+
 rbt::Command::Command(const MoveCommand &move, const GripCommand &grip) : Command()
 {
     type_ = CommandType::COMBINED;
@@ -55,6 +61,7 @@ void rbt::Command::to_xml(XmlWriter &writer) const
     move_.to_xml(writer);
     grip_.to_xml(writer);
     io_.to_xml(writer);
+    custom_cmd_.to_xml(writer);
 
     writer.close_element();
 }
