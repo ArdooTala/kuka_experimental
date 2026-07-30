@@ -104,6 +104,7 @@ private:
   bool add_linear_joint_cmd();
   bool add_linear_cartesian_cmd();
   bool add_circular_cartesian_cmd();
+  bool add_set_io_cmd();
   void add_vel_and_acc_to_command(rbt::MoveCommand &command);
   void add_blending_to_command(rbt::MoveCommand &command);
   void reset_command_interfaces();

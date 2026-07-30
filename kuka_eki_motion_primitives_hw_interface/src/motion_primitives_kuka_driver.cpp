@@ -350,31 +350,32 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::write(
         }
         break;
       }
+      case static_cast<uint8_t>(MoprimMotionHelperType::SET_IO):
+      {
+        RCLCPP_INFO(
+          rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Digital IO command received");
+        if(!add_set_io_cmd()) {
+          RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Failed to add SET_IO command");
+          robot_error_ = true;
+          return hardware_interface::return_type::ERROR;
+        }
+        reset_command_interfaces();
+        if (!build_motion_sequence_) {
+          std::lock_guard<std::mutex> guard(execution_mutex_);
+          if (!new_execution_available_) {
+            new_execution_available_ = true;
+          }
+        } else {
+          ready_for_new_primitive_ = true;
+        }
+        break;
+      }
       default: {
         RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Invalid motion command: motion type %f is not supported", motion_type);
         robot_error_ = true;
         return hardware_interface::return_type::ERROR;
       }
     }
-  }
-
-  // Check if we have a new IO command
-  if (!std::isnan(hw_digital_io_commands_[0]))
-  {
-    RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Digital IO command received");
-    rbt::IoCommand io_cmd(
-        static_cast<int>(hw_digital_io_commands_[0]),
-        static_cast<int>(hw_digital_io_commands_[1]),
-        static_cast<int>(hw_digital_io_commands_[2]),
-        static_cast<int>(hw_digital_io_commands_[3]));
-    robot_.perform(io_cmd);
-    {
-      std::lock_guard<std::mutex> guard(execution_mutex_);
-      if (!new_execution_available_) {
-        new_execution_available_ = true;
-      }
-    }
-    std::fill(hw_digital_io_commands_.begin(), hw_digital_io_commands_.end(), std::numeric_limits<double>::quiet_NaN());
   }
 
   return hardware_interface::return_type::OK;
@@ -484,6 +485,20 @@ bool MotionPrimitivesKukaDriver::add_circular_cartesian_cmd()
   return true;
 }
 
+bool MotionPrimitivesKukaDriver::add_set_io_cmd()
+{
+  rbt::IoCommand command {
+        static_cast<int>(hw_digital_io_commands_[0]),
+        static_cast<int>(hw_digital_io_commands_[1]),
+        static_cast<int>(hw_digital_io_commands_[2]),
+        static_cast<int>(hw_digital_io_commands_[3])
+  };
+  RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Added SET_IO command");
+  robot_.perform(command);
+
+  return true;
+}
+
 void MotionPrimitivesKukaDriver::add_vel_and_acc_to_command(rbt::MoveCommand &command)
 {
   if (std::isnan(hw_mo_prim_commands_[22])) {
@@ -512,6 +527,7 @@ void MotionPrimitivesKukaDriver::add_blending_to_command(rbt::MoveCommand &comma
 void MotionPrimitivesKukaDriver::reset_command_interfaces()
 {
   std::fill(hw_mo_prim_commands_.begin(), hw_mo_prim_commands_.end(), std::numeric_limits<double>::quiet_NaN());
+  std::fill(hw_digital_io_commands_.begin(), hw_digital_io_commands_.end(), std::numeric_limits<double>::quiet_NaN());
 }
 
 void MotionPrimitivesKukaDriver::asyncStopMotionThread()
