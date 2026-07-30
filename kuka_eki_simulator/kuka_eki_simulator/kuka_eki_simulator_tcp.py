@@ -91,10 +91,10 @@ def parse_eki_xml_sen(data):
             raise ValueError("Missing 'Id' attribute in <RobotCommand> element")
         result['command_id'] = int(command_id)
 
+        result['command_type'] = int(root.attrib.get('Type'))
+
         # Extract Mode from <Move> element
         move_element = root.find('.//Move')
-        if move_element is None:
-            raise ValueError("Missing <Move> element")
         mode = int(move_element.attrib.get('Mode', -1))  # Default to -1 if Mode is missing
 
         # Extract joint values (from <Move><Joint A1="0.000000" A2="0.000000" ...>)
@@ -103,15 +103,11 @@ def parse_eki_xml_sen(data):
             raise ValueError("Missing <Joint> element in <Move> section")
 
         joint_values = []
-        if mode == 1: # Joint mode --> extract joint values from the XML
-            for axis in ['A1', 'A2', 'A3', 'A4', 'A5', 'A6']:
-                axis_value = joint.attrib.get(axis)
-                if axis_value is None:
-                    raise ValueError(f"Missing joint value for {axis}")
-                joint_values.append(float(axis_value))
-        else: # Cartesian mode --> fill joint values with 0.0, since no IK is implemented
-            print(f"[Warning] Cartesian mode detected, using 0.0 joint values, because no IK is implemented.")
-            joint_values = [0.0] * 6
+        for axis in ['A1', 'A2', 'A3', 'A4', 'A5', 'A6']:
+            axis_value = joint.attrib.get(axis)
+            if axis_value is None:
+                raise ValueError(f"Missing joint value for {axis}")
+            joint_values.append(float(axis_value))
 
         result['joint_positions'] = np.array(joint_values, dtype=np.float64)
 
@@ -227,11 +223,16 @@ def main(args=None):
                 parsed_data = parse_eki_xml_sen(recv_msg)
                 node.get_logger().info(f"Parsed Data:\n{parsed_data}")
 
-                if parsed_data is None or parsed_data['joint_positions'] is None:
+                if parsed_data is None:
                     continue
 
-                act_joint_pos = parsed_data['joint_positions']
                 act_command_id = parsed_data['command_id']
+
+                if parsed_data['command_type'] == 2:
+                    act_joint_pos = parsed_data['joint_positions']
+
+                if parsed_data['command_type'] == 4:
+                    node.get_logger().info(f"Executing Custom CMD")
 
                 str_data = create_eki_xml_rob(act_joint_pos, act_command_id, True)
                 msg = String()
