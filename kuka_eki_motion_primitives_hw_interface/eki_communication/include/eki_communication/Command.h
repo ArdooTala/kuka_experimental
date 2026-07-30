@@ -21,6 +21,7 @@
 
 #include <eki_communication/MoveCommand.h>
 #include <eki_communication/GripCommand.h>
+#include <eki_communication/IoCommand.h>
 
 namespace rbt
 {
@@ -33,11 +34,13 @@ namespace rbt
         CommandType type_ = CommandType::NONE;
         MoveCommand move_;
         GripCommand grip_;
+        IoCommand io_;
 
     public:
         Command() : id_(++max_id_) {}
         Command(const MoveCommand &move);
         Command(const GripCommand &grip);
+        Command(const IoCommand &io);
         Command(const MoveCommand &move, const GripCommand &grip);
         ~Command() {}
 

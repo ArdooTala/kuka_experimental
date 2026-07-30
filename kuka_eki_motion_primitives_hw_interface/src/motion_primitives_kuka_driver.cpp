@@ -86,6 +86,9 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
     }
   }
 
+  hw_digital_io_states_.resize(4, std::numeric_limits<double>::quiet_NaN());  // [disig1, disig2, dosig1, dosig2]
+  hw_digital_io_commands_.resize(4, std::numeric_limits<double>::quiet_NaN());  // [do1_value, do1_mask, do2_value, do2_mask]
+
   return CallbackReturn::SUCCESS;
 }
 
@@ -118,6 +121,12 @@ std::vector<hardware_interface::StateInterface> MotionPrimitivesKukaDriver::expo
   // State interfaces for the motion_primitive_forward_controller
   state_interfaces.emplace_back(hardware_interface::StateInterface("motion_primitive", "execution_status", &hw_mo_prim_states_[0]));
   state_interfaces.emplace_back(hardware_interface::StateInterface("motion_primitive", "ready_for_new_primitive", &hw_mo_prim_states_[1]));
+
+  // State interfaces for digital IO
+  state_interfaces.emplace_back(hardware_interface::StateInterface("digital_input", "group_0", &hw_digital_io_states_[0]));
+  state_interfaces.emplace_back(hardware_interface::StateInterface("digital_input", "group_1", &hw_digital_io_states_[1]));
+  state_interfaces.emplace_back(hardware_interface::StateInterface("digital_output", "group_0", &hw_digital_io_states_[2]));
+  state_interfaces.emplace_back(hardware_interface::StateInterface("digital_output", "group_1", &hw_digital_io_states_[3]));
 
   return state_interfaces;
 }
@@ -163,6 +172,12 @@ std::vector<hardware_interface::CommandInterface> MotionPrimitivesKukaDriver::ex
   {
     command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "e" + std::to_string(i + 1), &hw_mo_prim_commands_[25 + i]));
   }
+
+  // Command interfaces for digital IO
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("digital_output", "group_0_value", &hw_digital_io_commands_[0]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("digital_output", "group_0_mask", &hw_digital_io_commands_[1]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("digital_output", "group_1_value", &hw_digital_io_commands_[2]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("digital_output", "group_1_mask", &hw_digital_io_commands_[3]));
 
   return command_interfaces;
 }
@@ -280,6 +295,11 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::read(
   hw_mo_prim_states_[0] = static_cast<uint8_t>(current_execution_status_);
   hw_mo_prim_states_[1] = static_cast<double>(ready_for_new_primitive_);
 
+  hw_digital_io_states_[0] = static_cast<double>(static_cast<uint32_t>(robot_state.disig1));
+  hw_digital_io_states_[1] = static_cast<double>(static_cast<uint32_t>(robot_state.disig2));
+  hw_digital_io_states_[2] = static_cast<double>(static_cast<uint32_t>(robot_state.dosig1));
+  hw_digital_io_states_[3] = static_cast<double>(static_cast<uint32_t>(robot_state.dosig2));
+
   return hardware_interface::return_type::OK;
 }
 
@@ -381,13 +401,34 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::write(
         }
         break;
       }
+      case static_cast<uint8_t>(MoprimMotionHelperType::SET_IO):
+      {
+        RCLCPP_INFO(
+          rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Digital IO command received");
+        if(!add_set_io_cmd()) {
+          RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Failed to add SET_IO command");
+          robot_error_ = true;
+          return hardware_interface::return_type::ERROR;
+        }
+        reset_command_interfaces();
+        if (!build_motion_sequence_) {
+          std::lock_guard<std::mutex> guard(execution_mutex_);
+          if (!new_execution_available_) {
+            new_execution_available_ = true;
+          }
+        } else {
+          ready_for_new_primitive_ = true;
+        }
+        break;
+      }
       default: {
         RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Invalid motion command: motion type %f is not supported", motion_type);
         robot_error_ = true;
         return hardware_interface::return_type::ERROR;
       }
     }
-  } 
+  }
+
   return hardware_interface::return_type::OK;
 }
 
@@ -533,6 +574,20 @@ void MotionPrimitivesKukaDriver::add_ext_axes_to_command(rbt::MoveCommand &comma
   command.target_ext_joints.e6 = converted_vals[5];
 }
 
+bool MotionPrimitivesKukaDriver::add_set_io_cmd()
+{
+  rbt::IoCommand command {
+        static_cast<int>(hw_digital_io_commands_[0]),
+        static_cast<int>(hw_digital_io_commands_[1]),
+        static_cast<int>(hw_digital_io_commands_[2]),
+        static_cast<int>(hw_digital_io_commands_[3])
+  };
+  RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Added SET_IO command");
+  robot_.perform(command);
+
+  return true;
+}
+
 void MotionPrimitivesKukaDriver::add_vel_and_acc_to_command(rbt::MoveCommand &command)
 {
   if (std::isnan(hw_mo_prim_commands_[22])) {
@@ -561,6 +616,7 @@ void MotionPrimitivesKukaDriver::add_blending_to_command(rbt::MoveCommand &comma
 void MotionPrimitivesKukaDriver::reset_command_interfaces()
 {
   std::fill(hw_mo_prim_commands_.begin(), hw_mo_prim_commands_.end(), std::numeric_limits<double>::quiet_NaN());
+  std::fill(hw_digital_io_commands_.begin(), hw_digital_io_commands_.end(), std::numeric_limits<double>::quiet_NaN());
 }
 
 void MotionPrimitivesKukaDriver::asyncExecuteMotionThread()

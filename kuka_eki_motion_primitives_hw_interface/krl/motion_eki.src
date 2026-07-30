@@ -46,11 +46,11 @@ def motion_eki()
    
    init_interface()
    current_command = null_command()
-   CURRENT_COMMAND_ID = 0
-   LAST_FINISHED_MOVE_ID = 0
-   ROBOT_STOPPED = false   ; global variable
-   
-   act_joint_vel = 1.0   ; 100%
+    CURRENT_COMMAND_ID = 0
+    LAST_FINISHED_MOVE_ID = 0
+    ROBOT_STOPPED = false   ; global variable
+    
+    act_joint_vel = 1.0   ; 100%
    act_joint_acc = 1.0   ; 100%
    act_cart_vel = 0 ; modify default value if needed
    act_cart_acc = 0 ; modify default value if needed
@@ -94,9 +94,11 @@ def motion_eki()
                check_error(do_move(current_command.step, current_command.move_data, current_command.id))
             case 2
                check_error(do_move(current_command.step, current_command.move_data, current_command.id))
-            case 3
-               check_error(do_grip(current_command.grip_data))
-         endswitch
+             case 3
+                check_error(do_grip(current_command.grip_data))
+             case 4
+                check_error(do_io(current_command.io_data))
+          endswitch
       else
          CURRENT_COMMAND_ID = 0
       endif
@@ -123,17 +125,18 @@ deffct command_type null_command()
    cartesian_aux = { x 0, y 0, z 0, a 0, b 0, c 0 }
    move_data.cartesian_aux = cartesian_aux
    
-   grip_data.mode = 0
-   jaw = { tolerance 0, velocity 0, force 0, base_pos 0, work_pos 0, teach_pos 0, shift_pos 0, direction_mode 0 }
-   grip_data.jaw = jaw
-   vacuum = { suction 0, cylinder 0 }
-   grip_data.vacuum = vacuum
-   
-   command = { id 0, step 0, type 0}
-   command.move_data = move_data
-   command.grip_data = grip_data
-   
-   return command
+    grip_data.mode = 0
+    jaw = { tolerance 0, velocity 0, force 0, base_pos 0, work_pos 0, teach_pos 0, shift_pos 0, direction_mode 0 }
+    grip_data.jaw = jaw
+    vacuum = { suction 0, cylinder 0 }
+    grip_data.vacuum = vacuum
+    
+    command = { id 0, step 0, type 0}
+    command.move_data = move_data
+    command.grip_data = grip_data
+    command.io_data = { sig1_value 0, sig1_mask 0, sig2_value 0, sig2_mask 0 }
+    
+    return command
 endfct
 
 def init_interface()
@@ -233,9 +236,15 @@ def send_status()
       ;status = eki_setbool("MOTION_EKI", "RobotState/Gripper/Vacuum/@Suction", $out[1230])
       ;status = eki_setbool("MOTION_EKI", "RobotState/Gripper/Vacuum/@Force1", $in[1230])  ;VakuumSensor1
       ;status = eki_setbool("MOTION_EKI", "RobotState/Gripper/Vacuum/@Force2", $in[1231])  ;VakuumSensor2
-      ;status = eki_setbool("MOTION_EKI", "RobotState/Gripper/Vacuum/@Cylinder", $in[1228])
-      
-      if has_connection() then
+       ;status = eki_setbool("MOTION_EKI", "RobotState/Gripper/Vacuum/@Cylinder", $in[1228])
+       
+       ; Digital IO
+       status = eki_setint("MOTION_EKI", "RobotState/IO/DI/@Sig1", disig1)
+       status = eki_setint("MOTION_EKI", "RobotState/IO/DI/@Sig2", disig2)
+       status = eki_setint("MOTION_EKI", "RobotState/IO/DO/@Sig1", dosig1)
+       status = eki_setint("MOTION_EKI", "RobotState/IO/DO/@Sig2", dosig2)
+       
+       if has_connection() then
          status = eki_send("MOTION_EKI", "RobotState")
       endif
    endif
@@ -398,10 +407,15 @@ deffct bool get_command(command :out)
    status = eki_getint("MOTION_EKI", "RobotCommand/Grip/Jaw/@ShiftPosition", command.grip_data.jaw.shift_pos)
    status = eki_getint("MOTION_EKI", "RobotCommand/Grip/Jaw/@DirectionMode", command.grip_data.jaw.direction_mode)
    
-   status = eki_getint("MOTION_EKI", "RobotCommand/Grip/Vacuum/@Suction", command.grip_data.vacuum.suction)
-   status = eki_getreal("MOTION_EKI", "RobotCommand/Grip/Vacuum/@Cylinder", command.grip_data.vacuum.cylinder)
-   
-   return true
+    status = eki_getint("MOTION_EKI", "RobotCommand/Grip/Vacuum/@Suction", command.grip_data.vacuum.suction)
+    status = eki_getreal("MOTION_EKI", "RobotCommand/Grip/Vacuum/@Cylinder", command.grip_data.vacuum.cylinder)
+    
+    status = eki_getint("MOTION_EKI", "RobotCommand/IO/DO/Sig1/@Value", command.io_data.sig1_value)
+    status = eki_getint("MOTION_EKI", "RobotCommand/IO/DO/Sig1/@Mask", command.io_data.sig1_mask)
+    status = eki_getint("MOTION_EKI", "RobotCommand/IO/DO/Sig2/@Value", command.io_data.sig2_value)
+    status = eki_getint("MOTION_EKI", "RobotCommand/IO/DO/Sig2/@Mask", command.io_data.sig2_mask)
+    
+    return true
 endfct
 
 
@@ -541,9 +555,17 @@ deffct int do_grip(grip_data :in)
    ;   endif
    ;endloop
    
-   return error_code
+    return error_code
 endfct
 
+deffct int do_io(io_data :in)
+    decl io_type io_data
+    
+    dosig1 = (dosig1 B_AND B_NOT io_data.sig1_mask) B_OR (io_data.sig1_value B_AND io_data.sig1_mask)
+    dosig2 = (dosig2 B_AND B_NOT io_data.sig2_mask) B_OR (io_data.sig2_value B_AND io_data.sig2_mask)
+    
+    return 0
+endfct
 
 def set_cmd_id_done(cmd_id :in)
    decl int cmd_id

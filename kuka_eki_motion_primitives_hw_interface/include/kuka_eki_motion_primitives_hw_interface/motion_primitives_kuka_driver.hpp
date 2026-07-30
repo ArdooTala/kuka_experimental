@@ -73,6 +73,8 @@ private:
   std::vector<double> hw_joint_eff_states_;
   std::vector<double> hw_mo_prim_states_;
   std::vector<double> hw_mo_prim_commands_;
+  std::vector<double> hw_digital_io_states_;
+  std::vector<double> hw_digital_io_commands_;
 
   MoprimExecutionState current_execution_status_{MoprimExecutionState::IDLE};
   std::atomic_bool ready_for_new_primitive_{false}; // Flag to indicate if the hw-interface is ready for a new motion primitive
@@ -102,6 +104,7 @@ private:
   bool add_linear_joint_cmd();
   bool add_linear_cartesian_cmd();
   bool add_circular_cartesian_cmd();
+  bool add_set_io_cmd();
   void add_ext_axes_to_command(rbt::MoveCommand &command);
   void add_vel_and_acc_to_command(rbt::MoveCommand &command);
   void add_blending_to_command(rbt::MoveCommand &command);

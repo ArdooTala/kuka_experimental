@@ -72,8 +72,13 @@
          <ELEMENT Tag="RobotCommand/Grip/Jaw/@DirectionMode" Type="INT"/>
          <!-- Grip vacuum -->
          <ELEMENT Tag="RobotCommand/Grip/Vacuum/@Suction" Type="INT"/>
-         <ELEMENT Tag="RobotCommand/Grip/Vacuum/@Cylinder" Type="REAL"/>
-      </XML>
+          <ELEMENT Tag="RobotCommand/Grip/Vacuum/@Cylinder" Type="REAL"/>
+          <!-- IO command -->
+          <ELEMENT Tag="RobotCommand/IO/DO/Sig1/@Value" Type="INT"/>
+          <ELEMENT Tag="RobotCommand/IO/DO/Sig1/@Mask" Type="INT"/>
+          <ELEMENT Tag="RobotCommand/IO/DO/Sig2/@Value" Type="INT"/>
+          <ELEMENT Tag="RobotCommand/IO/DO/Sig2/@Mask" Type="INT"/>
+       </XML>
    </RECEIVE>
    
    <SEND>
@@ -123,8 +128,13 @@
          <ELEMENT Tag="RobotState/Gripper/Vacuum/@Suction"/>
          <ELEMENT Tag="RobotState/Gripper/Vacuum/@Force1"/>
          <ELEMENT Tag="RobotState/Gripper/Vacuum/@Force2"/>
-         <ELEMENT Tag="RobotState/Gripper/Vacuum/@Cylinder"/>
-         <!-- Info -->
+          <ELEMENT Tag="RobotState/Gripper/Vacuum/@Cylinder"/>
+          <!-- Digital IO -->
+           <ELEMENT Tag="RobotState/IO/DI/@Sig1"/>
+           <ELEMENT Tag="RobotState/IO/DI/@Sig2"/>
+           <ELEMENT Tag="RobotState/IO/DO/@Sig1"/>
+           <ELEMENT Tag="RobotState/IO/DO/@Sig2"/>
+          <!-- Info -->
          <ELEMENT Tag="RobotState/Info/@Code"/>
          <ELEMENT Tag="RobotState/Info/@Message"/>
          <!-- Error -->

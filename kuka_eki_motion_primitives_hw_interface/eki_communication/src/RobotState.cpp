@@ -78,6 +78,13 @@ void rbt::RobotState::from_xml(XmlReader &reader)
     gripper_vacuum_force2 = element->FloatAttribute("Force2");
     gripper_vacuum_cylinder = element->FloatAttribute("Cylinder");
 
+    element = reader.get_element("IO/DI");
+    disig1 = element->IntAttribute("Sig1");
+    disig2 = element->IntAttribute("Sig2");
+    element = reader.get_element("IO/DO");
+    dosig1 = element->IntAttribute("Sig1");
+    dosig2 = element->IntAttribute("Sig2");
+
     element = reader.get_element("Info");
     info_code = element->IntAttribute("Code");
     info_message = element->Attribute("Message");

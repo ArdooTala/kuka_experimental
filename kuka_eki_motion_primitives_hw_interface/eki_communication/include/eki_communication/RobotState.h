@@ -55,6 +55,11 @@ namespace rbt
         float gripper_vacuum_force2 = 0.f;
         float gripper_vacuum_cylinder = 0.f;
 
+        int disig1 = 0;
+        int disig2 = 0;
+        int dosig1 = 0;
+        int dosig2 = 0;
+
         int info_code = 0;
         std::string info_message;
 

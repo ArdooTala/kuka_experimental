@@ -13,7 +13,15 @@ from std_msgs.msg import String
 
 max_vel = 1.0 * 100.0
 
-def create_eki_xml_rob(act_joint_pos, command_id="1", ext_ax_pos=None, in_motion=False):
+def pack_io(arr):
+    return int((arr.astype(np.uint32) << np.arange(32, dtype=np.uint32)).sum())
+
+def unpack_io(val):
+    return ((np.uint32(val) >> np.arange(32, dtype=np.uint32)) & 1).astype(bool)
+
+
+def create_eki_xml_rob(act_joint_pos, command_id="1", ext_ax_pos=None,
+                       in_motion=False, disig=None, dosig=None):
     q = act_joint_pos
     qd = [100.0 if in_motion else 0.0] * 6  # Joint velocities
     eff = [0.0] * 6  # Joint torques
@@ -81,6 +89,15 @@ def create_eki_xml_rob(act_joint_pos, command_id="1", ext_ax_pos=None, in_motion
     error.set('Code', "0")
     error.set('Message', "")
 
+    # Digital IO (attributes match KRL EKI: <DI Sig1="..." Sig2="..."/>)
+    io = ET.SubElement(root, 'IO')
+    di = ET.SubElement(io, 'DI')
+    di.set('Sig1', str(pack_io(disig[:32])))
+    di.set('Sig2', str(pack_io(disig[32:])))
+    do = ET.SubElement(io, 'DO')
+    do.set('Sig1', str(pack_io(dosig[:32])))
+    do.set('Sig2', str(pack_io(dosig[32:])))
+
     return ET.tostring(root, short_empty_elements=False)
 
 
@@ -97,6 +114,8 @@ def parse_eki_xml_sen(data):
         if command_id is None:
             raise ValueError("Missing 'Id' attribute in <RobotCommand> element")
         result['command_id'] = int(command_id)
+
+        result['command_type'] = int(root.attrib.get('Type'))
 
         # Extract Mode from <Move> element
         move_element = root.find('.//Move')
@@ -135,6 +154,23 @@ def parse_eki_xml_sen(data):
             ext_joint_values.append(float(ext_axis_value))
 
         result['ext_joint_positions'] = np.array(ext_joint_values, dtype=np.float64)
+
+        # Parse IO command and return values + masks as numpy bool arrays
+        io_element = root.find('IO')
+        if io_element is not None:
+            do_element = io_element.find('DO')
+            if do_element is not None:
+                sig1 = do_element.find('Sig1')
+                sig2 = do_element.find('Sig2')
+                result['do_values'] = np.concatenate([
+                    unpack_io(int(sig1.attrib.get('Value', '0'))) if sig1 is not None else np.zeros(32, dtype=bool),
+                    unpack_io(int(sig2.attrib.get('Value', '0'))) if sig2 is not None else np.zeros(32, dtype=bool),
+                ])
+                result['do_masks'] = np.concatenate([
+                    unpack_io(int(sig1.attrib.get('Mask', '0'))) if sig1 is not None else np.zeros(32, dtype=bool),
+                    unpack_io(int(sig2.attrib.get('Mask', '0'))) if sig2 is not None else np.zeros(32, dtype=bool),
+                ])
+
         return result
 
     except Exception as e:
@@ -177,6 +213,9 @@ def main(args=None):
     ext_ax_pos = None
     max_timeout = 5
 
+    disig = np.zeros(64, dtype=bool)
+    dosig = np.zeros(64, dtype=bool)
+
     node = rclpy.create_node(node_name)
 
     node.get_logger().info(f"Started '{node_name}' node.")
@@ -206,7 +245,8 @@ def main(args=None):
             time.sleep(0.001)  # FIXME: make this a ros2 node
             try:
                 # Create and send robot state as XML
-                str_data = create_eki_xml_rob(act_joint_pos, act_command_id, ext_ax_pos)
+                str_data = create_eki_xml_rob(act_joint_pos, act_command_id,
+                                              ext_ax_pos, disig=disig, dosig=dosig)
                 msg = String()
                 msg.data = str(str_data)
                 eki_act_pub.publish(msg)
@@ -241,14 +281,23 @@ def main(args=None):
                 parsed_data = parse_eki_xml_sen(recv_msg)
                 node.get_logger().info(f"Parsed Data:\n{parsed_data}")
 
-                if parsed_data is None or parsed_data['joint_positions'] is None:
+                if parsed_data is None:
                     continue
 
-                act_joint_pos = parsed_data['joint_positions']
                 act_command_id = parsed_data['command_id']
-                ext_ax_pos = parsed_data['ext_joint_positions']
 
-                str_data = create_eki_xml_rob(act_joint_pos, act_command_id, ext_ax_pos, True)
+                if parsed_data['command_type'] == 2:
+                    act_joint_pos = parsed_data['joint_positions']
+                    ext_ax_pos = parsed_data['ext_joint_positions']
+
+                if parsed_data['command_type'] == 5:
+                    do_val = parsed_data['do_values']
+                    do_mask = parsed_data['do_masks']
+                    dosig = np.where(do_mask, do_val, dosig)
+
+                str_data = create_eki_xml_rob(act_joint_pos, act_command_id,
+                                              ext_ax_pos, True,
+                                              disig=disig, dosig=dosig)
                 msg = String()
                 msg.data = str(str_data)
                 eki_act_pub.publish(msg)
