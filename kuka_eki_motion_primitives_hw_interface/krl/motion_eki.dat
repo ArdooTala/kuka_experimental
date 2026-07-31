@@ -1,13 +1,13 @@
-&ACCESS RVP
+&ACCESS RVO
 &REL 48
-defdat motion_eki
+defdat motion_eki public
    ext bas(bas_command :in, real :in)
    struc move_type int mode, base_index, tool_index, wait_for_gripper, teached, real velocity, acceleration, blending, e6axis joint, e6pos cartesian, e6pos cartesian_aux
    struc jaw_type int tolerance, velocity, force, base_pos, work_pos, teach_pos, shift_pos, direction_mode
    struc vacuum_type int suction, real cylinder
    struc grip_type int mode, jaw_type jaw, vacuum_type vacuum
    struc io_type int sig1_value, sig1_mask, sig2_value, sig2_mask
-   struc custom_cmd_type int index
+   global struc custom_cmd_type int index
    struc command_type int id, step, type, move_type move_data, grip_type grip_data, io_type io_data, custom_cmd_type custom_cmd_data
    decl command_type current_command
    decl axis teached_points[10]
@@ -38,8 +38,8 @@ defdat motion_eki
    decl int WorkPosition
    decl int TeachPosition
 
-   SIGNAL disig1 $IN[1..32]
-   SIGNAL disig2 $IN[33..64]
-   SIGNAL dosig1 $OUT[1..32]
-   SIGNAL dosig2 $OUT[33..64]
+   global SIGNAL disig1 $IN[1] TO $IN[32]
+   global SIGNAL disig2 $IN[33] TO $IN[64]
+   global SIGNAL dosig1 $OUT[1] TO $OUT[32]
+   global SIGNAL dosig2 $OUT[33] TO $OUT[64]
 enddat
