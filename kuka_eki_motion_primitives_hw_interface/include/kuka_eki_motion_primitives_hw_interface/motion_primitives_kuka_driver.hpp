@@ -66,13 +66,18 @@ public:
     const rclcpp::Time & time, const rclcpp::Duration & period) override;
 
 private:
+  size_t ext_axis_count_;
   std::vector<rbt::ExtAxisType> ext_axis_types_;
 
   std::vector<double> hw_joint_pos_states_;
   std::vector<double> hw_joint_vel_states_;
   std::vector<double> hw_joint_eff_states_;
   std::vector<double> hw_mo_prim_states_;
-  std::vector<double> hw_mo_prim_commands_;
+  std::vector<double> hw_mo_prim_commands_joints_;
+  std::vector<double> hw_mo_prim_commands_ext_joints_;
+  std::vector<double> hw_mo_prim_commands_pos_;
+  std::vector<double> hw_mo_prim_commands_via_pos_;
+  std::vector<double> hw_mo_prim_commands_motion_;
 
   MoprimExecutionState current_execution_status_{MoprimExecutionState::IDLE};
   std::atomic_bool ready_for_new_primitive_{false}; // Flag to indicate if the hw-interface is ready for a new motion primitive
