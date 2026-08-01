@@ -66,32 +66,33 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
   hw_mo_prim_commands_pos_.resize(7, std::numeric_limits<double>::quiet_NaN());         // 7 positions
   hw_mo_prim_commands_via_pos_.resize(7, std::numeric_limits<double>::quiet_NaN());     // 7 via positions
 
-  // Cache external axis types 
+  ext_axis_count_ = info_.joints.size() - 6;
+  // Cache external axis types
   ext_axis_types_.assign(6, rbt::ExtAxisType::UNKNOWN);
-  for (size_t j = 0; j < 6; ++j)
+  for (size_t j = 0; j < ext_axis_count_; ++j)
   {
-    if (info_.joints.size() > 6 + j)
+    const auto & joint_info = info_.joints[6 + j];
+    auto it = joint_info.parameters.find("axis_type");
+    if (it != joint_info.parameters.end())
     {
-      const auto & joint_info = info_.joints[6 + j];
-      auto it = joint_info.parameters.find("axis_type");
-      if (it != joint_info.parameters.end())
+      const std::string & axis_type = it->second;
+      if (axis_type == "rotary")
       {
-        const std::string & axis_type = it->second;
-        if (axis_type == "rotary")
-        {
-          ext_axis_types_[j] = rbt::ExtAxisType::ROTARY;
-          RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Cached external joint %zu (%s) as ROTARY", j + 1, joint_info.name.c_str());
-        }
-        else if (axis_type == "linear")
-        {
-          ext_axis_types_[j] = rbt::ExtAxisType::LINEAR;
-          RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Cached external joint %zu (%s) as LINEAR", j + 1, joint_info.name.c_str());
-        }
+        ext_axis_types_[j] = rbt::ExtAxisType::ROTARY;
+        RCLCPP_INFO( rclcpp::get_logger("MotionPrimitivesKukaDriver"),
+          "Cached external joint %zu (%s) as ROTARY", j + 1, joint_info.name.c_str());
       }
-      else
+      else if (axis_type == "linear")
       {
-        RCLCPP_WARN(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "No axis_type specified for joint %s. Caching as UNKNOWN", joint_info.name.c_str());
+        ext_axis_types_[j] = rbt::ExtAxisType::LINEAR;
+        RCLCPP_INFO( rclcpp::get_logger("MotionPrimitivesKukaDriver"),
+          "Cached external joint %zu (%s) as LINEAR", j + 1, joint_info.name.c_str());
       }
+    }
+    else
+    {
+      RCLCPP_WARN( rclcpp::get_logger("MotionPrimitivesKukaDriver"),
+        "No axis_type specified for joint %s. Caching as UNKNOWN", joint_info.name.c_str());
     }
   }
 
@@ -518,15 +519,11 @@ bool MotionPrimitivesKukaDriver::add_circular_cartesian_cmd()
 
 void MotionPrimitivesKukaDriver::add_ext_axes_to_command(rbt::MoveCommand &command)
 {
-  // Check if external joint positions are valid
-  for (int i = 25; i <= 30; ++i) {
-  }
-
   constexpr double rad_to_deg = 180.0 / M_PI;
   double converted_vals[6];
 
-  for (size_t j = 0; j < 6; ++j) {
-    double raw_val = hw_mo_prim_commands_[25 + j];
+  for (size_t j = 0; j < ext_axis_count_; ++j) {
+    double raw_val = hw_mo_prim_commands_ext_joints_[j];
     if (std::isnan(raw_val)) {
         RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "External Axis position is NaN");
         converted_vals[j] = std::numeric_limits<double>::quiet_NaN();

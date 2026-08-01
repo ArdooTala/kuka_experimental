@@ -66,6 +66,7 @@ public:
     const rclcpp::Time & time, const rclcpp::Duration & period) override;
 
 private:
+  size_t ext_axis_count_;
   std::vector<rbt::ExtAxisType> ext_axis_types_;
 
   std::vector<double> hw_joint_pos_states_;
