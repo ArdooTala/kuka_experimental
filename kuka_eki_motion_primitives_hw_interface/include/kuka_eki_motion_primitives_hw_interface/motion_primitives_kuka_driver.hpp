@@ -17,6 +17,7 @@
 #ifndef KUKA_EKI_MOTION_PRIMITIVES_HW_INTERFACE__MOTION_PRIMITIVES_KUKA_DRIVER_HPP_
 #define KUKA_EKI_MOTION_PRIMITIVES_HW_INTERFACE__MOTION_PRIMITIVES_KUKA_DRIVER_HPP_
 
+#include <array>
 #include <string>
 #include <vector>
 #include <queue>
@@ -78,6 +79,7 @@ private:
   std::vector<double> hw_mo_prim_commands_pos_;
   std::vector<double> hw_mo_prim_commands_via_pos_;
   std::vector<double> hw_mo_prim_commands_motion_;
+  std::vector<double> hw_mo_prim_commands_custom_cmd_;
 
   MoprimExecutionState current_execution_status_{MoprimExecutionState::IDLE};
   std::atomic_bool ready_for_new_primitive_{false}; // Flag to indicate if the hw-interface is ready for a new motion primitive
@@ -107,6 +109,7 @@ private:
   bool add_linear_joint_cmd();
   bool add_linear_cartesian_cmd();
   bool add_circular_cartesian_cmd();
+  bool add_custom_cmd();
   void add_ext_axes_to_command(rbt::MoveCommand &command);
   void add_vel_and_acc_to_command(rbt::MoveCommand &command);
   void add_blending_to_command(rbt::MoveCommand &command);

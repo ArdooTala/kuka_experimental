@@ -1,0 +1,29 @@
+deffct int do_custom_command(custom_cmd_data :in, cmd_id :in)
+  decl int cmd_id
+  decl custom_cmd_type custom_cmd_data
+
+  decl int error_code = 0
+
+  switch (custom_cmd_data.index)
+    case 1
+      home_all()
+    case 2
+      MsgNotify("Custom Command Executed")
+    case 3
+      custom_command_1()
+    default
+      error_code = 2
+
+  return error_code
+end
+
+def home_all()
+  ptp $XHOME
+end
+
+def custom_command_1()
+  $OUT[51]=TRUE
+  WAIT SEC 1
+  $OUT[51]=FALSE
+end
+

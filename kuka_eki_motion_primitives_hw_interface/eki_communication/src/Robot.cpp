@@ -83,6 +83,11 @@ void rbt::Robot::perform(const MoveCommand &move, const GripCommand &grip)
     perform(Command(move, grip));
 }
 
+void rbt::Robot::perform(const CustomCommand &custom)
+{
+    perform(Command(custom));
+}
+
 void rbt::Robot::perform(const Command &command)
 {
     waiting_sequence_.add(command);
