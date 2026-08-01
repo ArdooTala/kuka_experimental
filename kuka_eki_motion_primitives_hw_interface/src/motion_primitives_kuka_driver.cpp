@@ -56,7 +56,12 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
 
   // State interfaces for the motion_primitive_forward_controller
   hw_mo_prim_states_.resize(2, std::numeric_limits<double>::quiet_NaN());     // execution_status, ready_for_new_primitive
-  hw_mo_prim_commands_.resize(25, std::numeric_limits<double>::quiet_NaN());  // motion_type + 6 joints + 2*7 positions + blend_radius + velocity + acceleration + move_time
+  
+  // Command Interfaces
+  hw_mo_prim_commands_motion_.resize(5, std::numeric_limits<double>::quiet_NaN());  // motion_type + blend_radius + velocity + acceleration + move_time
+  hw_mo_prim_commands_joints_.resize(6, std::numeric_limits<double>::quiet_NaN());  // 6 joints
+  hw_mo_prim_commands_pos_.resize(7, std::numeric_limits<double>::quiet_NaN());     // 7 positions
+  hw_mo_prim_commands_via_pos_.resize(7, std::numeric_limits<double>::quiet_NaN()); // 7 via positions
 
   return CallbackReturn::SUCCESS;
 }
@@ -101,36 +106,36 @@ std::vector<hardware_interface::CommandInterface> MotionPrimitivesKukaDriver::ex
 
   std::vector<hardware_interface::CommandInterface> command_interfaces;
 
-  // Command for motion type (motion_type)
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "motion_type", &hw_mo_prim_commands_[0]));
   // Joint position commands (q1, q2, ..., q6)
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "q1", &hw_mo_prim_commands_[1]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "q2", &hw_mo_prim_commands_[2]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "q3", &hw_mo_prim_commands_[3]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "q4", &hw_mo_prim_commands_[4]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "q5", &hw_mo_prim_commands_[5]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "q6", &hw_mo_prim_commands_[6]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "q1", &hw_mo_prim_commands_joints_[1]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "q2", &hw_mo_prim_commands_joints_[2]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "q3", &hw_mo_prim_commands_joints_[3]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "q4", &hw_mo_prim_commands_joints_[4]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "q5", &hw_mo_prim_commands_joints_[5]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "q6", &hw_mo_prim_commands_joints_[6]));
   // Position commands (pos_x, pos_y, pos_z, pos_qx, pos_qy, pos_qz, pos_qz)
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_x", &hw_mo_prim_commands_[7]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_y", &hw_mo_prim_commands_[8]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_z", &hw_mo_prim_commands_[9]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_qx", &hw_mo_prim_commands_[10]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_qy", &hw_mo_prim_commands_[11]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_qz", &hw_mo_prim_commands_[12]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_qw", &hw_mo_prim_commands_[13]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_x", &hw_mo_prim_commands_pos_[0]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_y", &hw_mo_prim_commands_pos_[1]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_z", &hw_mo_prim_commands_pos_[2]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_qx", &hw_mo_prim_commands_pos_[3]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_qy", &hw_mo_prim_commands_pos_[4]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_qz", &hw_mo_prim_commands_pos_[5]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_qw", &hw_mo_prim_commands_pos_[6]));
   // Via Position commands for circula motion
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_x", &hw_mo_prim_commands_[14]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_y", &hw_mo_prim_commands_[15]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_z", &hw_mo_prim_commands_[16]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_qx", &hw_mo_prim_commands_[17]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_qy", &hw_mo_prim_commands_[18]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_qz", &hw_mo_prim_commands_[19]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_qw", &hw_mo_prim_commands_[20]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_x", &hw_mo_prim_commands_via_pos_[0]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_y", &hw_mo_prim_commands_via_pos_[1]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_z", &hw_mo_prim_commands_via_pos_[2]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_qx", &hw_mo_prim_commands_via_pos_[3]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_qy", &hw_mo_prim_commands_via_pos_[4]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_qz", &hw_mo_prim_commands_via_pos_[5]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_qw", &hw_mo_prim_commands_via_pos_[6]));
+  // Command for motion type (motion_type)
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "motion_type", &hw_mo_prim_commands_motion_[0]));
   // Other command parameters (blend_radius, velocity, acceleration, move_time)
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "blend_radius", &hw_mo_prim_commands_[21]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "velocity", &hw_mo_prim_commands_[22]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "acceleration", &hw_mo_prim_commands_[23]));
-  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "move_time", &hw_mo_prim_commands_[24]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "blend_radius", &hw_mo_prim_commands_motion_[1]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "velocity", &hw_mo_prim_commands_motion_[2]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "acceleration", &hw_mo_prim_commands_motion_[3]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "move_time", &hw_mo_prim_commands_motion_[4]));
 
   return command_interfaces;
 }
@@ -235,9 +240,9 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::write(
   const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
   // Check if we have a new command
-  if (!std::isnan(hw_mo_prim_commands_[0])) {
+  if (!std::isnan(hw_mo_prim_commands_motion_[0])) {
     ready_for_new_primitive_ = false; // set to false to indicate that the driver is busy handeling a command
-    double motion_type = hw_mo_prim_commands_[0];
+    double motion_type = hw_mo_prim_commands_motion_[0];
     switch (static_cast<uint8_t>(motion_type))
     {
       case static_cast<uint8_t>(MoprimMotionHelperType::STOP_MOTION): {
@@ -342,20 +347,20 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::write(
 bool MotionPrimitivesKukaDriver::add_linear_joint_cmd()
 {
   // Check if joint positions are valid
-  for (int i = 1; i <= 6; ++i) {
-    if (std::isnan(hw_mo_prim_commands_[i])) {
+  for (int i = 0; i < 6; ++i) {
+    if (std::isnan(hw_mo_prim_commands_joints_[i])) {
         RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Invalid motion command: joint positions contain NaN values");
         return false;
     }
   }
   constexpr double rad_to_deg = 180.0 / M_PI;
   std::vector<double> joints = {     // get joint positions in degrees
-      hw_mo_prim_commands_[1] * rad_to_deg,
-      hw_mo_prim_commands_[2] * rad_to_deg,
-      hw_mo_prim_commands_[3] * rad_to_deg,
-      hw_mo_prim_commands_[4] * rad_to_deg,
-      hw_mo_prim_commands_[5] * rad_to_deg,
-      hw_mo_prim_commands_[6] * rad_to_deg};
+      hw_mo_prim_commands_joints_[0] * rad_to_deg,
+      hw_mo_prim_commands_joints_[1] * rad_to_deg,
+      hw_mo_prim_commands_joints_[2] * rad_to_deg,
+      hw_mo_prim_commands_joints_[3] * rad_to_deg,
+      hw_mo_prim_commands_joints_[4] * rad_to_deg,
+      hw_mo_prim_commands_joints_[5] * rad_to_deg};
   rbt::MoveCommand command;
   command = rbt::MoveCommand(rbt::PoseJoints(joints[0], joints[1], joints[2], joints[3], joints[4], joints[5]));
   add_vel_and_acc_to_command(command);
@@ -372,20 +377,20 @@ bool MotionPrimitivesKukaDriver::add_linear_joint_cmd()
 bool MotionPrimitivesKukaDriver::add_linear_cartesian_cmd()
 {
   // Check if pose values (position and quaternion) are valid
-  for (int i = 7; i <= 13; ++i) {
-    if (std::isnan(hw_mo_prim_commands_[i])) {
+  for (int i = 0; i < 7; ++i) {
+    if (std::isnan(hw_mo_prim_commands_pos_[i])) {
         RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Invalid motion command: pose contains NaN values");
         return false;
     }
   }
   double a, b, c;
-  quaternionToKukaABC(hw_mo_prim_commands_[10], hw_mo_prim_commands_[11], hw_mo_prim_commands_[12], hw_mo_prim_commands_[13], a, b, c);
+  quaternionToKukaABC(hw_mo_prim_commands_pos_[3], hw_mo_prim_commands_pos_[4], hw_mo_prim_commands_pos_[5], hw_mo_prim_commands_pos_[6], a, b, c);
 
 
   std::vector<double> pose = {
-    hw_mo_prim_commands_[7] * 1000.0, // from m to mm
-    hw_mo_prim_commands_[8] * 1000.0,
-    hw_mo_prim_commands_[9] * 1000.0,
+    hw_mo_prim_commands_pos_[0] * 1000.0, // from m to mm
+    hw_mo_prim_commands_pos_[1] * 1000.0,
+    hw_mo_prim_commands_pos_[2] * 1000.0,
     a, b, c};
 
   rbt::MoveCommand command;
@@ -404,27 +409,34 @@ bool MotionPrimitivesKukaDriver::add_linear_cartesian_cmd()
 bool MotionPrimitivesKukaDriver::add_circular_cartesian_cmd()
 {
   // Check if pose values (position and quaternion) are valid
-  for (int i = 7; i <= 20; ++i) {
-    if (std::isnan(hw_mo_prim_commands_[i])) {
+  for (int i = 0; i < 7; ++i) {
+    if (std::isnan(hw_mo_prim_commands_pos_[i])) {
         RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Invalid motion command: pose contains NaN values");
         return false;
     }
   }
+  // Check if via pose values (position and quaternion) are valid
+  for (int i = 0; i < 7; ++i) {
+    if (std::isnan(hw_mo_prim_commands_via_pos_[i])) {
+        RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Invalid motion command: via pose contains NaN values");
+        return false;
+    }
+  }
   double goal_a, goal_b, goal_c;
-  quaternionToKukaABC(hw_mo_prim_commands_[10], hw_mo_prim_commands_[11], hw_mo_prim_commands_[12], hw_mo_prim_commands_[13], goal_a, goal_b, goal_c);
+  quaternionToKukaABC(hw_mo_prim_commands_pos_[3], hw_mo_prim_commands_pos_[4], hw_mo_prim_commands_pos_[5], hw_mo_prim_commands_pos_[6], goal_a, goal_b, goal_c);
   
   double via_a, via_b, via_c;
-  quaternionToKukaABC(hw_mo_prim_commands_[17], hw_mo_prim_commands_[18], hw_mo_prim_commands_[19], hw_mo_prim_commands_[20], via_a, via_b, via_c);
+  quaternionToKukaABC(hw_mo_prim_commands_via_pos_[3], hw_mo_prim_commands_via_pos_[4], hw_mo_prim_commands_via_pos_[5], hw_mo_prim_commands_via_pos_[6], via_a, via_b, via_c);
 
   std::vector<double> goal_pose = {
-    hw_mo_prim_commands_[7] * 1000.0, // from m to mm
-    hw_mo_prim_commands_[8] * 1000.0,
-    hw_mo_prim_commands_[9] * 1000.0,
+    hw_mo_prim_commands_pos_[0] * 1000.0, // from m to mm
+    hw_mo_prim_commands_pos_[1] * 1000.0,
+    hw_mo_prim_commands_pos_[2] * 1000.0,
     goal_a, goal_b, goal_c};
   std::vector<double> via_pose = {
-    hw_mo_prim_commands_[14] * 1000.0, // from m to mm
-    hw_mo_prim_commands_[15] * 1000.0,
-    hw_mo_prim_commands_[16] * 1000.0,
+    hw_mo_prim_commands_via_pos_[0] * 1000.0, // from m to mm
+    hw_mo_prim_commands_via_pos_[1] * 1000.0,
+    hw_mo_prim_commands_via_pos_[2] * 1000.0,
     via_a, via_b, via_c};
 
   rbt::MoveCommand command;
@@ -445,32 +457,35 @@ bool MotionPrimitivesKukaDriver::add_circular_cartesian_cmd()
 
 void MotionPrimitivesKukaDriver::add_vel_and_acc_to_command(rbt::MoveCommand &command)
 {
-  if (std::isnan(hw_mo_prim_commands_[22])) {
+  if (std::isnan(hw_mo_prim_commands_motion_[2])) {
     command.velocity = 0.0;
   } else {
-    command.velocity = hw_mo_prim_commands_[22];
+    command.velocity = hw_mo_prim_commands_motion_[2];
   }
   
-  if (std::isnan(hw_mo_prim_commands_[23])) {
+  if (std::isnan(hw_mo_prim_commands_motion_[3])) {
     command.acceleration = 0.0;
   } else {
-    command.acceleration = hw_mo_prim_commands_[23];
+    command.acceleration = hw_mo_prim_commands_motion_[3];
   }
 }
 
 void MotionPrimitivesKukaDriver::add_blending_to_command(rbt::MoveCommand &command)
 {
   // (Blending only alowed in sequence)
-  if (std::isnan(hw_mo_prim_commands_[21]) || !build_motion_sequence_) {
+  if (std::isnan(hw_mo_prim_commands_motion_[1]) || !build_motion_sequence_) {
     command.blending = 0.0;
   } else {
-    command.blending = hw_mo_prim_commands_[21];
+    command.blending = hw_mo_prim_commands_motion_[1];
   }
 }
 
 void MotionPrimitivesKukaDriver::reset_command_interfaces()
 {
-  std::fill(hw_mo_prim_commands_.begin(), hw_mo_prim_commands_.end(), std::numeric_limits<double>::quiet_NaN());
+  std::fill(hw_mo_prim_commands_motion_.begin(), hw_mo_prim_commands_motion_.end(), std::numeric_limits<double>::quiet_NaN());
+  std::fill(hw_mo_prim_commands_joints_.begin(), hw_mo_prim_commands_joints_.end(), std::numeric_limits<double>::quiet_NaN());
+  std::fill(hw_mo_prim_commands_pos_.begin(), hw_mo_prim_commands_motion_.end(), std::numeric_limits<double>::quiet_NaN());
+  std::fill(hw_mo_prim_commands_via_pos_.begin(), hw_mo_prim_commands_via_pos_.end(), std::numeric_limits<double>::quiet_NaN());
 }
 
 void MotionPrimitivesKukaDriver::asyncStopMotionThread()
