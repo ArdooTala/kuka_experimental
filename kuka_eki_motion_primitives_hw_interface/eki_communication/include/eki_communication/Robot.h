@@ -73,8 +73,8 @@ namespace rbt
 
         void perform(const MoveCommand &move);
         void perform(const GripCommand &grip);
-        void perform(const MoveCommand &move, const GripCommand &grip);
         void perform(const CustomCommand &custom);
+        void perform(const MoveCommand &move, const GripCommand &grip);
 
         bool auto_run = false;
 

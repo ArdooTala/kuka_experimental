@@ -474,14 +474,13 @@ bool MotionPrimitivesKukaDriver::add_circular_cartesian_cmd()
 
 bool MotionPrimitivesKukaDriver::add_custom_cmd()
 {
-  int cmd_index = static_cast<int>(hw_mo_prim_commands_custom_cmd_[0]);
   if (std::isnan(hw_mo_prim_commands_custom_cmd_[0])) {
     RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "custom_cmd_index is NaN");
     return false;
   }
+  int cmd_index = static_cast<int>(hw_mo_prim_commands_custom_cmd_[0]);
   // TODO(anyone): read custom_cmd_params from command interfaces when implemented
-  static constexpr std::array<uint8_t, 256> empty_params{};
-  robot_.perform(rbt::CustomCommand(cmd_index, empty_params));
+  robot_.perform(rbt::CustomCommand(cmd_index));
   return true;
 }
 
