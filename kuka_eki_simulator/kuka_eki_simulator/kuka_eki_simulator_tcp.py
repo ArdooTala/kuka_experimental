@@ -241,10 +241,10 @@ def main(args=None):
                     continue
 
                 act_command_id = parsed_data['command_id']
-                ext_ax_pos = parsed_data['ext_joint_positions']
 
                 if parsed_data['command_type'] == 2:
                     act_joint_pos = parsed_data['joint_positions']
+                    ext_ax_pos = parsed_data['ext_joint_positions']
 
                 if parsed_data['command_type'] == 4:
                     node.get_logger().info(f"Executing Custom CMD")
