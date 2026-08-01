@@ -1,5 +1,5 @@
 &ACCESS RVP
-&REL 48
+&REL 50
 def motion_eki()
    ; Software License Agreement (BSD License)
    ;
@@ -44,6 +44,7 @@ def motion_eki()
    ; Initialization
    bas(#initmov, 0)
    
+   $flag[1]=FALSE
    init_interface()
    current_command = null_command()
    CURRENT_COMMAND_ID = 0
@@ -83,9 +84,13 @@ def motion_eki()
    DeviceMode = 10 
 
    interrupt decl 19 when $flag[3] == true do stop_movement()  ;local interrupt to use RESUME
- 
+
+   WAIT FOR $FLAG[1]
    ; Communication process
    loop
+      if NOT has_connection() then
+         EXIT
+      endif
       if get_command(current_command) then   
          CURRENT_COMMAND_ID = current_command.id
          switch current_command.type
@@ -96,7 +101,7 @@ def motion_eki()
                check_error(do_move(current_command.step, current_command.move_data, current_command.id))
             case 3
                check_error(do_grip(current_command.grip_data))
-            case 4
+            case 5
                check_error(do_custom_command(current_command.custom_cmd_data, current_command.id))
          endswitch
       else
@@ -131,7 +136,6 @@ deffct command_type null_command()
    grip_data.jaw = jaw
    vacuum = { suction 0, cylinder 0 }
    grip_data.vacuum = vacuum
-   
    custom_cmd_data.index = 0
    
    command = { id 0, step 0, type 0}
@@ -167,7 +171,6 @@ def init_interface()
    status = eki_open("MOTION_EKI")
 end
 
-
 def reset_interface()
    decl eki_status status
    msgnotify("Reset motion interface", "Motion EKI")
@@ -181,13 +184,12 @@ def close_interface()
    decl eki_status status
    msgnotify("Close motion interface", "Motion EKI")
    status = eki_close("MOTION_EKI")
+   status = eki_clear("MOTION_EKI")
 end
-
 
 deffct bool has_connection()
    return $flag[1]
 endfct
-
 
 def send_status()
    decl eki_status status
@@ -206,12 +208,7 @@ def send_status()
       status = eki_setreal("MOTION_EKI", "RobotState/Position/Joint/@A5", $axis_act_meas.a5)
       status = eki_setreal("MOTION_EKI", "RobotState/Position/Joint/@A6", $axis_act_meas.a6)
       ; Cartesian position
-      status = eki_setreal("MOTION_EKI", "RobotState/Position/Cartesian/@X", $pos_act.x)
-      status = eki_setreal("MOTION_EKI", "RobotState/Position/Cartesian/@Y", $pos_act.y)
-      status = eki_setreal("MOTION_EKI", "RobotState/Position/Cartesian/@Z", $pos_act.z)
-      status = eki_setreal("MOTION_EKI", "RobotState/Position/Cartesian/@A", $pos_act.a)
-      status = eki_setreal("MOTION_EKI", "RobotState/Position/Cartesian/@B", $pos_act.b)
-      status = eki_setreal("MOTION_EKI", "RobotState/Position/Cartesian/@C", $pos_act.c)
+      status = eki_setframe("MOTION_EKI", "RobotState/Position/Cartesian", $pos_act)
       ; External Axis position
       status = eki_setreal("MOTION_EKI", "RobotState/Position/ExtAxis/@E1", $axis_act_meas.e1)
       status = eki_setreal("MOTION_EKI", "RobotState/Position/ExtAxis/@E2", $axis_act_meas.e2)
@@ -250,7 +247,6 @@ def send_status()
    $timer[1] = -10  ; ~10 ms for above send + 10 ms interrupt timer -> ~50 Hz state transmission
 end
 
-
 def check_error(error_code :in)
    decl int error_code
    
@@ -274,7 +270,7 @@ def check_error(error_code :in)
       endswitch
       
       send_error(error_code, error_message[])
-     endif
+   endif
 end
 
 def send_info(info_code :in, info_message[] :in)
@@ -301,7 +297,6 @@ def send_error(error_code :in, error_message[] :in)
    endif
 end
 
-
 deffct bool has_command()
    decl eki_status status
    
@@ -314,7 +309,6 @@ deffct bool has_command()
    return status.buff > 0
 endfct
 
-
 deffct bool get_command(command :out)
    decl command_type command
    
@@ -323,7 +317,7 @@ deffct bool get_command(command :out)
    decl real ext_axis[6]
    
    if not has_command() then
-     return false
+      return false
    endif
    
    ext_axis[1] = 0.0
@@ -336,6 +330,11 @@ deffct bool get_command(command :out)
    status = eki_getint("MOTION_EKI", "RobotCommand/@Id", command.id)
    status = eki_getint("MOTION_EKI", "RobotCommand/@Type", command.type)
    
+   ;Check if it was a stop command
+   if command.type == 4 then
+      return false
+   endif
+   
    status = eki_getint("MOTION_EKI", "RobotCommand/Move/@Mode", command.move_data.mode)
    status = eki_getint("MOTION_EKI", "RobotCommand/Move/@BaseIndex", command.move_data.base_index)
    status = eki_getint("MOTION_EKI", "RobotCommand/Move/@ToolIndex", command.move_data.tool_index)
@@ -343,7 +342,7 @@ deffct bool get_command(command :out)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/@Acceleration", command.move_data.acceleration)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/@Blending", command.move_data.blending)
    status = eki_getint("MOTION_EKI", "RobotCommand/Move/@WaitForGripper", command.move_data.wait_for_gripper)
-      
+   
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E1", ext_axis[1])
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E2", ext_axis[2])
    status = eki_getreal("MOTION_EKI", "RobotCommand/Move/ExtAxis/@E3", ext_axis[3])
@@ -392,9 +391,9 @@ deffct bool get_command(command :out)
    command.move_data.cartesian_aux.e4 = ext_axis[4]
    command.move_data.cartesian_aux.e5 = ext_axis[5]
    command.move_data.cartesian_aux.e6 = ext_axis[6]
-  
+   
    status = eki_getint("MOTION_EKI", "RobotCommand/Move/Teached/@PositionIndex", command.move_data.teached)
-    
+   
    status = eki_getint("MOTION_EKI", "RobotCommand/Grip/@Mode", command.grip_data.mode)
    
    status = eki_getint("MOTION_EKI", "RobotCommand/Grip/Jaw/@Tolerance", command.grip_data.jaw.tolerance)
@@ -409,11 +408,10 @@ deffct bool get_command(command :out)
    status = eki_getint("MOTION_EKI", "RobotCommand/Grip/Vacuum/@Suction", command.grip_data.vacuum.suction)
    status = eki_getreal("MOTION_EKI", "RobotCommand/Grip/Vacuum/@Cylinder", command.grip_data.vacuum.cylinder)
    
-   status = eki_getint("MOTION_EKI", "RobotCommand/Custom/Cmd/@CmdIndex", command.custom_cmd_data.index)
+   status = eki_getint("MOTION_EKI", "RobotCommand/CustomCmd/@CmdIndex", command.custom_cmd_data.index)
    
    return true
 endfct
-
 
 deffct int do_move(step :in, move_data :in, cmd_id :in)
    decl int step
@@ -428,13 +426,15 @@ deffct int do_move(step :in, move_data :in, cmd_id :in)
    if move_data.base_index > 0 then
       $base = base_data[move_data.base_index]
    else 
-      $base = $nullframe
+      $base = base_data[25]
+      ;$base = $nullframe
    endif
-
+   
    if move_data.tool_index > 0 then
       $tool = tool_data[move_data.tool_index]
    else 
-      $tool = $nullframe
+      $tool = tool_data[13]
+      ;$tool = $nullframe
    endif
    
    switch (move_data.mode)
@@ -465,12 +465,12 @@ deffct int do_move(step :in, move_data :in, cmd_id :in)
          INTERRUPT ON 19
          lin move_data.cartesian C_DIS
          INTERRUPT OFF 19
-      ;case 4
-      ;   INTERRUPT ON 19
-      ;   ptp teached_points[move_data.teached] c_ptp C_DIS
-      ;   INTERRUPT OFF 19
-      ;case 5
-      ;   lin teached_points[move_data.teached]
+         ;case 4
+         ;   INTERRUPT ON 19
+         ;   ptp teached_points[move_data.teached] c_ptp C_DIS
+         ;   INTERRUPT OFF 19
+         ;case 5
+         ;   lin teached_points[move_data.teached]
       case 6
          set_cart_vel(move_data.velocity)
          set_cart_acc(move_data.acceleration)
@@ -537,7 +537,6 @@ deffct int do_grip(grip_data :in)
       $out[1108] = grip_data.jaw.direction_mode == 0
       $out[1109] = grip_data.jaw.direction_mode == 1
       
-      
       if $out[1109] == true then 
          ;wait sec 1
       endif
@@ -554,8 +553,7 @@ deffct int do_grip(grip_data :in)
    return error_code
 endfct
 
-
-def set_cmd_id_done(cmd_id :in)
+global def set_cmd_id_done(cmd_id :in)
    decl int cmd_id
    msgnotify("Command with ID %1 done","Motion EKI",cmd_id)
    LAST_FINISHED_MOVE_ID = cmd_id
@@ -577,10 +575,10 @@ def stop_movement()
    endif
    
    ; Reset current command to ensure a clean restart
-    current_command = null_command()
-    
+   current_command = null_command()
+   
    ROBOT_STOPPED = true
-    
+   
    ; wait one cycle
    WAIT sec 0.012
    
