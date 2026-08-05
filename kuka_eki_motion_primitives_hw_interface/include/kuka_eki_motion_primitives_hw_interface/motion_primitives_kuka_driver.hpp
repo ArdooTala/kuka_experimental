@@ -107,6 +107,7 @@ private:
   bool add_circular_cartesian_cmd();
   void add_vel_and_acc_to_command(rbt::MoveCommand &command);
   void add_blending_to_command(rbt::MoveCommand &command);
+  void add_base_and_tool_to_command(rbt::MoveCommand &command);
   void reset_command_interfaces();
   void quaternionToKukaABC(double qx, double qy, double qz, double qw, double& A, double& B, double& C);
 };
