@@ -58,7 +58,7 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
   hw_mo_prim_commands_motion_.resize(5, std::numeric_limits<double>::quiet_NaN());      // motion_type + blend_radius + velocity + acceleration + move_time
   hw_mo_prim_commands_joints_.resize(6, std::numeric_limits<double>::quiet_NaN());      // 6 joints
   hw_mo_prim_commands_ext_joints_.resize(6, std::numeric_limits<double>::quiet_NaN());  // 6 external joints
-  hw_mo_prim_commands_pos_.resize(7, std::numeric_limits<double>::quiet_NaN());         // 7 positions
+  hw_mo_prim_commands_pos_.resize(9, std::numeric_limits<double>::quiet_NaN());         // 7 positions + base_index + tool_index
   hw_mo_prim_commands_via_pos_.resize(7, std::numeric_limits<double>::quiet_NaN());     // 7 via positions
   hw_mo_prim_commands_custom_cmd_.resize(1, std::numeric_limits<double>::quiet_NaN());  // custom command index
 
@@ -149,6 +149,9 @@ std::vector<hardware_interface::CommandInterface> MotionPrimitivesKukaDriver::ex
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_qy", &hw_mo_prim_commands_pos_[4]));
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_qz", &hw_mo_prim_commands_pos_[5]));
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_qw", &hw_mo_prim_commands_pos_[6]));
+  // Base and Tool frame indices for cartesian motions (0 = nullframe)
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "base_index", &hw_mo_prim_commands_pos_[7]));
+  command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "tool_index", &hw_mo_prim_commands_pos_[8]));
   // Via Position commands for circula motion
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_x", &hw_mo_prim_commands_via_pos_[0]));
   command_interfaces.emplace_back(hardware_interface::CommandInterface("motion_primitive", "pos_via_y", &hw_mo_prim_commands_via_pos_[1]));
@@ -470,10 +473,12 @@ bool MotionPrimitivesKukaDriver::add_linear_cartesian_cmd()
   command = rbt::MoveCommand(rbt::PoseCartesian(pose[0], pose[1], pose[2], pose[3], pose[4], pose[5]), true);
   add_vel_and_acc_to_command(command);
   add_blending_to_command(command);
+  add_base_and_tool_to_command(command);
   RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), 
         "Adding LINEAR_CARTESIAN with pose: [%f, %f, %f, %f, %f, %f]"
-        ", velocity: %f, acceleration: %f, blending: %f",
+        "base: %d, tool: %d, velocity: %f, acceleration: %f, blending: %f",
         pose[0], pose[1], pose[2], pose[3], pose[4], pose[5],
+        command.base_index, command.tool_index,
         command.velocity, command.acceleration, command.blending);
   robot_.perform(command);
   return true;
@@ -517,11 +522,13 @@ bool MotionPrimitivesKukaDriver::add_circular_cartesian_cmd()
                              rbt::PoseCartesian(goal_pose[0], goal_pose[1], goal_pose[2], goal_pose[3], goal_pose[4], goal_pose[5]));
   add_vel_and_acc_to_command(command);
   add_blending_to_command(command);
+  add_base_and_tool_to_command(command);
   RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), 
         "Adding CIRCULAR_CARTESIAN with goal_pose: [%f, %f, %f, %f, %f, %f] and via_pose: [%f, %f, %f, %f, %f, %f]"
-        ", velocity: %f, acceleration: %f, blending: %f",
+        "base: %d, tool: %d, velocity: %f, acceleration: %f, blending: %f",
         goal_pose[0], goal_pose[1], goal_pose[2], goal_pose[3], goal_pose[4], goal_pose[5],
         via_pose[0], via_pose[1], via_pose[2], via_pose[3], via_pose[4], via_pose[5],
+        command.base_index, command.tool_index,
         command.velocity, command.acceleration, command.blending);
   robot_.perform(command);
 
@@ -595,12 +602,26 @@ void MotionPrimitivesKukaDriver::add_blending_to_command(rbt::MoveCommand &comma
   }
 }
 
+void MotionPrimitivesKukaDriver::add_base_and_tool_to_command(rbt::MoveCommand &command)
+{
+  if (std::isnan(hw_mo_prim_commands_pos_[7])) {
+    command.base_index = 0;
+  } else {
+    command.base_index = static_cast<int>(hw_mo_prim_commands_pos_[7]);
+  }
+  if (std::isnan(hw_mo_prim_commands_pos_[8])) {
+    command.tool_index = 0;
+  } else {
+    command.tool_index = static_cast<int>(hw_mo_prim_commands_pos_[8]);
+  }
+}
+
 void MotionPrimitivesKukaDriver::reset_command_interfaces()
 {
   std::fill(hw_mo_prim_commands_motion_.begin(), hw_mo_prim_commands_motion_.end(), std::numeric_limits<double>::quiet_NaN());
   std::fill(hw_mo_prim_commands_joints_.begin(), hw_mo_prim_commands_joints_.end(), std::numeric_limits<double>::quiet_NaN());
   std::fill(hw_mo_prim_commands_ext_joints_.begin(), hw_mo_prim_commands_ext_joints_.end(), std::numeric_limits<double>::quiet_NaN());
-  std::fill(hw_mo_prim_commands_pos_.begin(), hw_mo_prim_commands_motion_.end(), std::numeric_limits<double>::quiet_NaN());
+  std::fill(hw_mo_prim_commands_pos_.begin(), hw_mo_prim_commands_pos_.end(), std::numeric_limits<double>::quiet_NaN());
   std::fill(hw_mo_prim_commands_via_pos_.begin(), hw_mo_prim_commands_via_pos_.end(), std::numeric_limits<double>::quiet_NaN());
   std::fill(hw_mo_prim_commands_custom_cmd_.begin(), hw_mo_prim_commands_custom_cmd_.end(), std::numeric_limits<double>::quiet_NaN());
 }
