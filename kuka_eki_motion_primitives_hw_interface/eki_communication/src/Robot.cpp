@@ -24,14 +24,20 @@
 
 bool rbt::Robot::is_connected()
 {
-    return (!interface_used_ || interface_.is_connected());
+    return (!interface_used_ || interface_.is_connected()) && (!meta_interface_used_ || meta_interface_.is_connected());
 }
 
 bool rbt::Robot::connect(const std::string &host, int port, int meta_port)
 {
     std::cout << "[Robot] Trying to connect to the host: [" << host << "], port: [" << port << "], meta_port: [" << meta_port << "]" << std::endl;
     interface_used_ = port > 0;
+    meta_interface_used_ = meta_port > 0;
     
+    if (meta_interface_used_)
+    {
+        connect_to(meta_interface_, host, meta_port);
+    }
+
     if (interface_used_)
     {
         connect_to(interface_, host, port);
@@ -57,6 +63,12 @@ void rbt::Robot::disconnect()
     {
         std::cout << "[Robot] Disconnecting EKI Interface ..." << std::endl;
         interface_.disconnect();
+    }
+
+    if (meta_interface_used_)
+    {
+        std::cout << "[Robot] Disconnecting Meta EKI Interface ..." << std::endl;
+        meta_interface_.disconnect();
     }
 }
 
@@ -215,6 +227,12 @@ void rbt::Robot::spin()
             update_state(xml, false);
         }
 
+        if (meta_interface_used_)
+        {
+            std::string meta_xml = collect_state_xml(meta_interface_, meta_buffer, "MetaState");
+            update_state(meta_xml, true);
+        }
+
         std::this_thread::sleep_for(std::chrono::milliseconds(loop_delay_));
     }
 }
@@ -247,8 +265,15 @@ void rbt::Robot::update_state(std::string &xml_message, bool is_meta)
 
         if (!reader.has_error())
         {
-            state_.from_xml(reader);
-            active_sequence_.update(state_);
+            if (is_meta)
+            {
+                meta_state_.from_xml(reader);
+            }
+            else
+            {
+                state_.from_xml(reader);
+                active_sequence_.update(state_);
+            }
 
             call_listener(RobotEvent::STATE);
 
