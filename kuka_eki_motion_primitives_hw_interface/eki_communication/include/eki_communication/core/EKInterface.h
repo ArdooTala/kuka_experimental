@@ -34,7 +34,7 @@ namespace rbt
         EKInterface() {}
         ~EKInterface() {}
 
-        int receive_size = 1024;
+        int receive_size = 4096;
 
         bool is_connected();
 

@@ -35,12 +35,12 @@ bool rbt::Robot::connect(const std::string &host, int port, int meta_port)
     
     if (meta_interface_used_)
     {
-        connect_to(meta_interface_, host, meta_port);
+        connect_to(meta_interface_, host, meta_port, true);
     }
 
     if (interface_used_)
     {
-        connect_to(interface_, host, port);
+        connect_to(interface_, host, port, false);
     }
     std::cout << "[Robot] is_connected: " << is_connected() << std::endl;
     return is_connected();
@@ -199,12 +199,18 @@ void rbt::Robot::send_abort(bool abort)
     int size = interface_.send(writer.get_string());
 }
 
-void rbt::Robot::connect_to(rbt::EKInterface &interface, const std::string &host, int port)
+void rbt::Robot::connect_to(rbt::EKInterface &interface, const std::string &host, int port, bool udp)
 {
     while (!interface.is_connected())
     {
-        if (interface.connect_to(host, port))
+        if (interface.connect_to(host, port, udp))
         {
+            if (udp)
+            {
+                // EKI's UDP server may only start sending datagrams to the client after
+                // receiving a first packet (client address registration).
+                interface.send(";");
+            }
             call_listener(RobotEvent::CONNECT);
         }
         else

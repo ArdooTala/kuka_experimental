@@ -50,7 +50,7 @@ namespace rbt
         float velocity_override_ = 1.f;
         bool commands_paused_ = false;
 
-        void connect_to(rbt::EKInterface &interface, const std::string &host, int port);
+        void connect_to(rbt::EKInterface &interface, const std::string &host, int port, bool udp = false);
         void spin();
         std::string collect_state_xml(EKInterface &interface, std::string &buffer, const std::string &tag);
         void update_state(std::string &xml_message, bool is_meta);
