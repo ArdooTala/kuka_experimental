@@ -490,31 +490,31 @@ void MotionPrimitivesKukaDriver::asyncExecuteMotionThread()
   while (!async_thread_shutdown_) 
   {
     if (new_stop_available_) {
-      std::lock_guard<std::mutex> guard(stop_mutex_);
-      new_stop_available_ = false;
       robot_.abort_commands();
-      RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Waiting for Robot to stop ...");
-      while(!robot_.robot_stopped()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // wait until robot is stopped
-      }
+      std::lock_guard<std::mutex> guard(stop_mutex_);
+      robot_stopped_ = true;
+      pending_execution = false;
       while(!checkCommandIdDoneQueue.empty()){
         // Remove all command IDs from the queue --> dont wait for them to get finished since they are discarded
         checkCommandIdDoneQueue.pop();    
       }
+      if (!robot_.robot_stopped()) {
+        RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Waiting for Robot to stop ...");
+        continue;
+      }
       RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Robot stopped");
-      robot_stopped_ = true;
-      pending_execution = false;
+      new_stop_available_ = false;
       continue;
     } else if (new_reset_available_) {
-      std::lock_guard<std::mutex> guard(stop_mutex_);
-      new_reset_available_ = false;
       robot_.reset_abort_commands();
-      RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Waiting for Robot to reset stop ...");
-      while(robot_.robot_stopped()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      if (robot_.robot_stopped()) {
+        RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Waiting for Robot to reset stop ...");
+        continue;
       }
       RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Robot reset stop done");
+      std::lock_guard<std::mutex> guard(stop_mutex_);
       robot_stopped_ = false;
+      new_reset_available_ = false;
       continue;
     }
     if (robot_stopped_)
