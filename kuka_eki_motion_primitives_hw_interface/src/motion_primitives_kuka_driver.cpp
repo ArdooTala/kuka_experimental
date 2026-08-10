@@ -22,14 +22,8 @@
 
 namespace kuka_eki_motion_primitives_hw_interface
 {
-MotionPrimitivesKukaDriver::~MotionPrimitivesKukaDriver()
-{
-  if (async_execute_motion_thread_ && async_execute_motion_thread_->joinable()) 
-  {
-    async_execute_motion_thread_->join();
-    async_execute_motion_thread_.reset();
-  }
-}
+MotionPrimitivesKukaDriver::~MotionPrimitivesKukaDriver() = default;
+
 hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
   const hardware_interface::HardwareInfo & info)
 {
@@ -41,8 +35,6 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
   }
 
   info_ = info;
-
-  async_thread_shutdown_ = false;
 
   // Joint states for RViz, ...
   hw_joint_pos_states_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
@@ -65,7 +57,6 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_configure(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
   RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Configuring Hardware Interface ...");
-  async_execute_motion_thread_ = std::make_unique<std::thread>(&MotionPrimitivesKukaDriver::asyncExecuteMotionThread, this);
   return CallbackReturn::SUCCESS;
 }
 
@@ -179,6 +170,14 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_deactivate(
 hardware_interface::return_type MotionPrimitivesKukaDriver::read(
   const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
+  // Receive and parse state feedback from both EKI channels (non-blocking)
+  robot_.poll_state();
+
+  if (!robot_.is_connected())
+  {
+    robot_error_ = true;
+  }
+
   rbt::RobotState robot_state = robot_.get_state();
   const rbt::PoseJoints& joints = robot_state.position_joints;
   constexpr double deg_to_rad = M_PI / 180.0;
@@ -205,10 +204,10 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::read(
   hw_joint_eff_states_[4] = torque.a5;
   hw_joint_eff_states_[5] = torque.a6;
   
-  if(!checkCommandIdDoneQueue.empty() && checkCommandIdDoneQueue.front() == robot_.last_finished_command_id()) // Motion Primitive or Sequence done
+  if(completion_pending_ && !robot_.is_active()) // Motion Primitive or Sequence done
   {
-    RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Robot finished command with ID: %d", robot_.last_finished_command_id());
-    checkCommandIdDoneQueue.pop();
+    completion_pending_ = false;
+    RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Robot finished command with ID: %d", robot_.get_program_state().command_id);
     current_execution_status_ = MoprimExecutionState::SUCCESS;
   } 
   else if (robot_error_) 
@@ -219,7 +218,7 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::read(
   {
     current_execution_status_ = MoprimExecutionState::STOPPED;
   } 
-  else if (robot_.robot_in_movement()) 
+  else if (robot_.get_program_state().status == 1) // KRL ProgramState/State/@Status: 1 = executing
   {
     current_execution_status_ = MoprimExecutionState::EXECUTING;
   } 
@@ -245,37 +244,27 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::write(
     {
       case static_cast<uint8_t>(MoprimMotionHelperType::STOP_MOTION): {
         RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "STOP_MOTION command received");
-        std::lock_guard<std::mutex> guard(stop_mutex_);
-        if (!new_stop_available_) {
-          new_stop_available_ = true;
-          reset_command_interfaces();
-        }
+        robot_.abort_commands();
+        robot_.clear_waiting_commands();
+        completion_pending_ = false; // don't wait for the discarded commands to finish
+        build_motion_sequence_ = false;
+        robot_stopped_ = true; // report STOPPED to the controller immediately
         break;
       }
       case static_cast<uint8_t>(MoprimMotionHelperType::RESET_STOP): {
         RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "RESET_STOP command received");
-        std::lock_guard<std::mutex> guard(stop_mutex_);
-        if (!new_reset_available_) {
-          new_reset_available_ = true;
-          reset_command_interfaces();
-        }
+        robot_.reset_abort_commands();
+        robot_stopped_ = false; // report READY again; the KRC latch converges on the last flag set
         break;
       }
       case static_cast<uint8_t>(MoprimMotionHelperType::MOTION_SEQUENCE_START): {
         RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Received MOTION_SEQUENCE_START: add all following commands to the motion sequence.");
         build_motion_sequence_ = true;  // set flag to put all following commands into the motion sequence
-        reset_command_interfaces();
-        ready_for_new_primitive_ = true; // set to true to allow sending new commands
         break;
       }
       case static_cast<uint8_t>(MoprimMotionHelperType::MOTION_SEQUENCE_END): {
         RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Received MOTION_SEQUENCE_END: executing motion sequence ...");
-        build_motion_sequence_ = false;
-        std::lock_guard<std::mutex> guard(execution_mutex_);
-        if (!new_execution_available_) {
-          new_execution_available_ = true;  // set flag for async thread to send command to robot
-        }
-        reset_command_interfaces();
+        build_motion_sequence_ = false; // the tail of write() sends the collected batch
         break;
       }
       case MoprimMotionType::LINEAR_JOINT: { // MoveJ/ PTP
@@ -284,15 +273,6 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::write(
           RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Failed to add LINEAR_JOINT command");
           robot_error_ = true;
           return hardware_interface::return_type::ERROR;
-        }
-        reset_command_interfaces();
-        if(!build_motion_sequence_) { // send single command imimediately
-          std::lock_guard<std::mutex> guard(execution_mutex_);
-          if (!new_execution_available_) {
-            new_execution_available_ = true;
-          }
-        } else {
-          ready_for_new_primitive_ = true;
         }
         break;
       }
@@ -303,15 +283,6 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::write(
           robot_error_ = true;
           return hardware_interface::return_type::ERROR;
         }
-        reset_command_interfaces();
-        if(!build_motion_sequence_) {
-          std::lock_guard<std::mutex> guard(execution_mutex_);
-          if (!new_execution_available_) {
-            new_execution_available_ = true;
-          }
-        } else {
-          ready_for_new_primitive_ = true;
-        }
         break;
       }
       case MoprimMotionType::CIRCULAR_CARTESIAN: {  // MoveC/ CIRC
@@ -321,24 +292,37 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::write(
           robot_error_ = true;
           return hardware_interface::return_type::ERROR;
         }
-        reset_command_interfaces();
-        if(!build_motion_sequence_) {
-          std::lock_guard<std::mutex> guard(execution_mutex_);
-          if (!new_execution_available_) {
-            new_execution_available_ = true;
-          }
-        } else {
-          ready_for_new_primitive_ = true;
-        }
         break;
       }
       default: {
         RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Invalid motion command: motion type %f is not supported", motion_type);
         robot_error_ = true;
+        reset_command_interfaces();
         return hardware_interface::return_type::ERROR;
       }
     }
-  } 
+    reset_command_interfaces();
+  }
+
+  if (robot_stopped_) {
+    return hardware_interface::return_type::OK;
+  }
+
+  if (build_motion_sequence_) {
+    ready_for_new_primitive_ = true;
+    return hardware_interface::return_type::OK;
+  }
+
+  if (robot_.has_waiting_commands()) {
+    if (robot_.run())
+    {
+      RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Sent command to robot successfully. Last command ID: %d", robot_.last_command_id_of_sequence());
+      completion_pending_ = true; // wait for the explicit per-command feedback
+    }
+    return hardware_interface::return_type::OK;
+  }
+
+  ready_for_new_primitive_ = true;
   return hardware_interface::return_type::OK;
 }
 
@@ -485,80 +469,6 @@ void MotionPrimitivesKukaDriver::reset_command_interfaces()
   std::fill(hw_mo_prim_commands_pos_.begin(), hw_mo_prim_commands_pos_.end(), std::numeric_limits<double>::quiet_NaN());
   std::fill(hw_mo_prim_commands_via_pos_.begin(), hw_mo_prim_commands_via_pos_.end(), std::numeric_limits<double>::quiet_NaN());
 }
-
-void MotionPrimitivesKukaDriver::asyncExecuteMotionThread()
-{
-  const auto TIMEOUT_DURATION = std::chrono::seconds(5);
-  std::chrono::time_point start_time = std::chrono::steady_clock::now();
-  bool pending_execution = false;
-  while (!async_thread_shutdown_) 
-  {
-    if (new_stop_available_) {
-      robot_.abort_commands();
-      std::lock_guard<std::mutex> guard(stop_mutex_);
-      robot_stopped_ = true;
-      pending_execution = false;
-      while(!checkCommandIdDoneQueue.empty()){
-        // Remove all command IDs from the queue --> dont wait for them to get finished since they are discarded
-        checkCommandIdDoneQueue.pop();    
-      }
-      if (!robot_.robot_stopped()) {
-        RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Waiting for Robot to stop ...");
-        continue;
-      }
-      RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Robot stopped");
-      new_stop_available_ = false;
-      continue;
-    } else if (new_reset_available_) {
-      robot_.reset_abort_commands();
-      if (robot_.robot_stopped()) {
-        RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Waiting for Robot to reset stop ...");
-        continue;
-      }
-      RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Robot reset stop done");
-      std::lock_guard<std::mutex> guard(stop_mutex_);
-      robot_stopped_ = false;
-      new_reset_available_ = false;
-      continue;
-    }
-    if (robot_stopped_)
-        continue;
-    if (pending_execution) {
-      if (robot_.run())
-      {
-        RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Sent command to robot successfully.");
-        pending_execution = false;
-        continue;
-      }
-      // Check if the timeout has been reached
-      if (std::chrono::steady_clock::now() - start_time > TIMEOUT_DURATION) 
-      {
-        RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Timeout reached: Failed to send command to robot.");
-        return;
-      }
-      continue;
-    }
-    if (new_execution_available_) {
-      std::lock_guard<std::mutex> guard(execution_mutex_);
-      new_execution_available_ = false;
-      RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Sending command to robot ...");
-      start_time = std::chrono::steady_clock::now();
-      pending_execution = true;
-      // Store last command ID to check if it was executed
-      RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Last command ID: %d", robot_.last_command_id_of_sequence());
-      checkCommandIdDoneQueue.push(robot_.last_command_id_of_sequence());
-      continue;
-    }
-
-    ready_for_new_primitive_ = true;
-
-    // Small sleep to prevent busy waiting
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  }
-
-  RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "[asyncExecuteMotionThread] Exiting");
-}
-
 
 void MotionPrimitivesKukaDriver::quaternionToKukaABC(double qx, double qy, double qz, double qw,
                                                      double& A, double& B, double& C)

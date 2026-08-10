@@ -143,17 +143,6 @@ bool rbt::Robot::run()
 }
 
 
-bool rbt::Robot::robot_in_movement()
-{
-    // Check if any joint velocity is above a threshold (positive or negative)
-    constexpr float velocity_threshold = 0.5f;
-    PoseJoints &v = state_.velocity;
-    return fabs(v.a1) > velocity_threshold || fabs(v.a2) > velocity_threshold ||
-           fabs(v.a3) > velocity_threshold || fabs(v.a4) > velocity_threshold ||
-           fabs(v.a5) > velocity_threshold || fabs(v.a6) > velocity_threshold;
-}
-
-
 void rbt::Robot::send_sequence()
 {
     XmlWriter writer;
@@ -200,23 +189,18 @@ void rbt::Robot::connect_to(rbt::EKInterface &interface, const std::string &host
     }
 }
 
-void rbt::Robot::spin()
+void rbt::Robot::poll_state()
 {
-    while (is_connected())
+    if (interface_used_)
     {
-        if (interface_used_)
-        {
-            std::string xml = collect_state_xml(interface_, buffer_, "ProgramState");
-            update_state(xml, false);
-        }
+        std::string xml = collect_state_xml(interface_, buffer_, "ProgramState");
+        update_state(xml, false);
+    }
 
-        if (meta_interface_used_)
-        {
-            std::string meta_xml = collect_state_xml(meta_interface_, meta_buffer_, "RobotState");
-            update_state(meta_xml, true);
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(loop_delay_));
+    if (meta_interface_used_)
+    {
+        std::string meta_xml = collect_state_xml(meta_interface_, meta_buffer_, "RobotState");
+        update_state(meta_xml, true);
     }
 }
 
@@ -234,6 +218,13 @@ std::string rbt::Robot::collect_state_xml(EKInterface &interface, std::string &b
         buffer = buffer.substr(end_index);
 
         return xml_message;
+    }
+
+    // Guard against unbounded growth if the closing tag never arrives
+    // (e.g. tag mismatch or a malformed stream).
+    if (buffer.size() > 64 * 1024)
+    {
+        buffer.clear();
     }
 
     return "";
@@ -256,6 +247,12 @@ void rbt::Robot::update_state(std::string &xml_message, bool is_meta)
             {
                 program_state_.from_xml(reader);
                 active_sequence_.update(program_state_.command_id, program_state_.command_status);
+
+                if (program_state_.status == 0)
+                {
+                    // EKI command buffer is empty -> the whole sequence is done.
+                    active_sequence_.finish();
+                }
             }
 
             call_listener(RobotEvent::STATE);
@@ -271,6 +268,11 @@ void rbt::Robot::update_state(std::string &xml_message, bool is_meta)
             std::cout << "-> " << xml_message << std::endl;
         }
     }
+}
+
+void rbt::Robot::clear_waiting_commands()
+{
+    waiting_sequence_.clear();
 }
 
 void rbt::Robot::call_listener(RobotEvent event)

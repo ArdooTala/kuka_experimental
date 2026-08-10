@@ -19,7 +19,6 @@
 
 #include <string>
 #include <vector>
-#include <queue>
 
 #include "hardware_interface/system_interface.hpp"
 #include "hardware_interface/handle.hpp"
@@ -77,8 +76,7 @@ private:
 
   MoprimExecutionState current_execution_status_{MoprimExecutionState::IDLE};
   std::atomic_bool ready_for_new_primitive_{false}; // Flag to indicate if the hw-interface is ready for a new motion primitive
-
-  std::queue<int> checkCommandIdDoneQueue;  // Queue to check if a command with a specific ID is done to return SUCCESS
+  bool completion_pending_{false}; // True while a sent sequence is still executing (explicit per-command feedback pending)
   
   std::string robot_ip_;
   int eki_robot_port_;
@@ -87,17 +85,6 @@ private:
   rbt::Robot robot_;
   bool robot_stopped_{false};
   bool robot_error_{false};
-
-  // Async thread handling
-  std::unique_ptr<std::thread> async_execute_motion_thread_;
-  std::atomic_bool async_thread_shutdown_{ false };
-  std::mutex execution_mutex_;
-  std::mutex stop_mutex_;
-
-  std::atomic_bool new_execution_available_{ false };
-  std::atomic_bool new_stop_available_{ false };
-  std::atomic_bool new_reset_available_{ false };
-  void asyncExecuteMotionThread();
 
   std::atomic_bool build_motion_sequence_{false};   // flag to put all following primitives into a motion sequence instead of sending single primitives
   bool add_linear_joint_cmd();

@@ -38,7 +38,6 @@ namespace rbt
         EKInterface meta_interface_;
 
         int reconnect_delay_ = 1000;
-        int loop_delay_ = 20;
         bool interface_used_ = false;
         bool meta_interface_used_ = false;
 
@@ -54,7 +53,6 @@ namespace rbt
         bool commands_paused_ = false;
 
         void connect_to(rbt::EKInterface &interface, const std::string &host, int port, bool udp = false);
-        void spin();
         std::string collect_state_xml(EKInterface &interface, std::string &buffer, const std::string &tag);
         void update_state(std::string &xml_message, bool is_meta);
         void call_listener(RobotEvent event);
@@ -72,6 +70,8 @@ namespace rbt
         bool is_connected();
         bool connect(const std::string &host, int port, int meta_port = 0);
         void disconnect();
+        void poll_state();
+        void clear_waiting_commands();
 
         void perform(const MoveCommand &move);
         void perform(const GripCommand &grip);
@@ -87,15 +87,14 @@ namespace rbt
 
         bool run();
         bool is_active() { return !active_sequence_.is_finished(); }
-        bool robot_in_movement();
         RobotState get_state() { return state_; }
         ProgramState get_program_state() { return program_state_; }
         float get_velocity_override() { return velocity_override_; }
         bool commands_paused() { return commands_paused_; }
 
         int last_command_id_of_sequence() const { return waiting_sequence_.last_command_id(); };
-        int last_finished_command_id() const { return state_.last_finished_command_id; }
-        int robot_stopped() const { return state_.robot_stopped; }
+        bool has_waiting_commands() const { return waiting_sequence_.size() > 0; }
+        bool robot_stopped() const { return program_state_.stopped; }
 
         std::function<void(RobotEvent event, Robot *robot)> listener = nullptr;
         // CommandSequence get_active_sequence() { return active_sequence_; }
