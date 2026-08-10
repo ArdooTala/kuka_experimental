@@ -177,14 +177,21 @@ void rbt::Robot::connect_to(rbt::EKInterface &interface, const std::string &host
 {
     while (!interface.is_connected())
     {
-        if (interface.connect_to(host, port, udp))
+        bool connected = interface.connect_to(host, port, udp);
+
+        if (connected && udp)
         {
-            if (udp)
-            {
-                // EKI's UDP server may only start sending datagrams to the client after
-                // receiving a first packet (client address registration).
-                interface.send(";");
-            }
+            // EKI's UDP server may only start sending datagrams to the client after
+            // receiving a first packet (client address registration). For UDP the
+            // connect() call never fails, so a failed ping (e.g. ICMP port unreachable
+            // while the server is not up yet) is the only way to detect that the
+            // server did not register us.
+            interface.send(";");
+            connected = interface.is_connected();
+        }
+
+        if (connected)
+        {
             call_listener(RobotEvent::CONNECT);
         }
         else

@@ -25,7 +25,7 @@ namespace rbt
     class EKInterface
     {
     private:
-        int socket_;
+        int socket_ = -1;
         bool connected_ = false;
 
         int check_error(int value, std::string msg);

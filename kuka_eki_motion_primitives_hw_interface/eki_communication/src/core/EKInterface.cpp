@@ -45,6 +45,9 @@ bool rbt::EKInterface::is_connected()
         socklen_t error_code_size = sizeof(error_code);
         getsockopt(socket_, SOL_SOCKET, SO_ERROR, &error_code, &error_code_size);
 
+        if (error_code != 0)
+            std::cout << "[EKInterface] " << "is_connected returned a non-zero error code: " << error_code << std::endl;
+
         connected_ = error_code == 0;
     }
 
@@ -84,6 +87,10 @@ bool rbt::EKInterface::connect_to(const std::string &host, int port, bool udp)
 {
     std::cout << "[EKInterface] Trying to connect to " << host << ", port: " << port << ", udp: " << (udp ? "true" : "false") << std::endl;
 
+    if (socket_ >= 0)
+    {
+        close(socket_);
+    }
     socket_ = socket(AF_INET, udp ? SOCK_DGRAM : SOCK_STREAM, 0);
     struct hostent *server = gethostbyname(host.c_str());
 
@@ -113,6 +120,7 @@ void rbt::EKInterface::disconnect()
 {
     close(socket_);
 
+    socket_ = -1;
     connected_ = false;
 
     std::cout << "[EKInterface] Closed socket " << socket_ << std::endl;
