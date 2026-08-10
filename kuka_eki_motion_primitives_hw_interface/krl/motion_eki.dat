@@ -12,6 +12,14 @@ defdat motion_eki public
    decl command_type current_command
    decl axis teached_points[10]
    
+   ; State codes for prg and cmd:
+   ;    IDLE=0
+   ;    EXECUTING=1
+   ;    SUCCESS=2
+   ;    ERROR=3
+   ;    STOPPING=4
+   ;    STOPPED=5
+
    decl real act_joint_vel
    decl real act_joint_acc
    decl real act_cart_vel
@@ -22,6 +30,7 @@ defdat motion_eki public
    
    decl int CURRENT_COMMAND_ID
    decl int LAST_FINISHED_MOVE_ID
+   decl int LAST_SENT_STATUS
    
    decl int temp_cmd_id
    

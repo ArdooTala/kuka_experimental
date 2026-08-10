@@ -42,26 +42,7 @@ def meta_eki()
    
    ; Initialization
    init_meta_interface()
-   current_meta = null_meta()
-
-   index = 0
-   $FLAG[3] = FALSE  ; reset abort_commands flag
-   
-   ; Communication process
-   loop
-      if get_meta(current_meta) then
-         update_meta(current_meta)
-      endif
-   endloop
 end
-
-deffct meta_type null_meta()
-   decl meta_type meta
-   
-   meta = { velocity_override 1, abort_commands 0}
-   
-   return meta
-endfct
 
 def init_meta_interface()
    decl eki_status status
@@ -109,12 +90,51 @@ def send_meta_status()
    
    if has_meta_connection() then
       ;("Send meta status", "Meta EKI")
-      ; Command id
-      status = eki_setreal("META_EKI", "MetaState/@VelocityOverride", current_meta.velocity_override)
-      status = eki_setint("META_EKI", "MetaState/@CommandEmpty", 0)
+      ; Joint position
+      status = eki_setreal("META_EKI", "RobotState/Position/Joint/@A1", $axis_act_meas.a1)
+      status = eki_setreal("META_EKI", "RobotState/Position/Joint/@A2", $axis_act_meas.a2)
+      status = eki_setreal("META_EKI", "RobotState/Position/Joint/@A3", $axis_act_meas.a3)
+      status = eki_setreal("META_EKI", "RobotState/Position/Joint/@A4", $axis_act_meas.a4)
+      status = eki_setreal("META_EKI", "RobotState/Position/Joint/@A5", $axis_act_meas.a5)
+      status = eki_setreal("META_EKI", "RobotState/Position/Joint/@A6", $axis_act_meas.a6)
+      ; External Axis position
+      status = eki_setreal("MOTION_EKI", "RobotState/Position/ExtAxis/@E1", $axis_act_meas.e1)
+      status = eki_setreal("MOTION_EKI", "RobotState/Position/ExtAxis/@E2", $axis_act_meas.e2)
+      status = eki_setreal("MOTION_EKI", "RobotState/Position/ExtAxis/@E3", $axis_act_meas.e3)
+      status = eki_setreal("MOTION_EKI", "RobotState/Position/ExtAxis/@E4", $axis_act_meas.e4)
+      status = eki_setreal("MOTION_EKI", "RobotState/Position/ExtAxis/@E5", $axis_act_meas.e5)
+      status = eki_setreal("MOTION_EKI", "RobotState/Position/ExtAxis/@E6", $axis_act_meas.e6)
+      ; Cartesian position
+      status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@X", $pos_act.x)
+      status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@Y", $pos_act.y)
+      status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@Z", $pos_act.z)
+      status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@A", $pos_act.a)
+      status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@B", $pos_act.b)
+      status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@C", $pos_act.c)
+      ; Velocity
+      status = eki_setreal("META_EKI", "RobotState/Velocity/@A1", $vel_axis_act[1] * $vel_axis_ma[1] / 100.0)
+      status = eki_setreal("META_EKI", "RobotState/Velocity/@A2", $vel_axis_act[2] * $vel_axis_ma[2] / 100.0)
+      status = eki_setreal("META_EKI", "RobotState/Velocity/@A3", $vel_axis_act[3] * $vel_axis_ma[3] / 100.0)
+      status = eki_setreal("META_EKI", "RobotState/Velocity/@A4", $vel_axis_act[4] * $vel_axis_ma[4] / 100.0)
+      status = eki_setreal("META_EKI", "RobotState/Velocity/@A5", $vel_axis_act[5] * $vel_axis_ma[5] / 100.0)
+      status = eki_setreal("META_EKI", "RobotState/Velocity/@A6", $vel_axis_act[6] * $vel_axis_ma[6] / 100.0)
+      ; Torque
+      status = eki_setreal("META_EKI", "RobotState/Torque/@A1", $torque_axis_act[1])
+      status = eki_setreal("META_EKI", "RobotState/Torque/@A2", $torque_axis_act[2])
+      status = eki_setreal("META_EKI", "RobotState/Torque/@A3", $torque_axis_act[3])
+      status = eki_setreal("META_EKI", "RobotState/Torque/@A4", $torque_axis_act[4])
+      status = eki_setreal("META_EKI", "RobotState/Torque/@A5", $torque_axis_act[5])
+      status = eki_setreal("META_EKI", "RobotState/Torque/@A6", $torque_axis_act[6])
+      ; Gripper
+      ;status = eki_setint("MOTION_EKI", "RobotState/Gripper/Jaw/@Position", ActualPosition)
+      ;status = eki_setint("MOTION_EKI", "RobotState/Gripper/Jaw/@Status", StatusWord)
+      ;status = eki_setbool("MOTION_EKI", "RobotState/Gripper/Vacuum/@Suction", $out[1230])
+      ;status = eki_setbool("MOTION_EKI", "RobotState/Gripper/Vacuum/@Force1", $in[1230])  ;VakuumSensor1
+      ;status = eki_setbool("MOTION_EKI", "RobotState/Gripper/Vacuum/@Force2", $in[1231])  ;VakuumSensor2
+      ;status = eki_setbool("MOTION_EKI", "RobotState/Gripper/Vacuum/@Cylinder", $in[1228])
       
       if has_meta_connection() then
-         status = eki_send("META_EKI", "MetaState")
+         status = eki_send("META_EKI", "RobotState")
       endif
    endif
    
@@ -122,87 +142,3 @@ def send_meta_status()
    $timer[2] = -10  ; ~10 ms for above send + 10 ms interrupt timer -> ~50 Hz state transmission
 end
 
-
-def check_error(error_code :in)
-   decl int error_code
-   
-   decl char error_message[64]
-   decl int index
-   
-   index = 0
-   
-   for index = 1 to 64
-      error_message[index] = " "
-   endfor
-   
-   if error_code > 0 then
-      switch error_code
-         case 1
-            error_message[] = "Fehler 1"
-         default
-            error_message[] = "Unbekannter Fehler"
-      endswitch
-      
-      send_error(error_code, error_message[])
-     endif
-end
-
-def send_error(error_code :in, error_message[] :in)
-   decl int error_code
-   decl char error_message[]
-   
-   decl eki_status status
-   
-   if has_meta_connection() then
-      status = eki_setint("META_EKI", "MetaState/Error/@Code", error_code)
-      status = eki_setstring("META_EKI", "MetaState/Error/@Message", error_message[])
-   endif
-end
-
-
-deffct bool has_meta()
-   decl eki_status status
-   
-   if not has_meta_connection() then
-      return false
-   endif
-
-   status = eki_checkbuffer("META_EKI", "MetaCommand/@VelocityOverride")
-   
-   return status.buff > 0
-endfct
-
-
-deffct bool get_meta(meta :out)
-   decl meta_type meta
-   
-   decl eki_status status
-   
-   if not has_meta() then
-     return false
-   endif
-   
-   status = eki_getreal("META_EKI", "MetaCommand/@VelocityOverride", meta.velocity_override)
-   status = eki_getint("META_EKI", "MetaCommand/@AbortCommands", meta.abort_commands)
-   
-   return true
-endfct
-
-
-def update_meta(meta :in)
-   decl meta_type meta
-   decl int i
-   
-   ; Update velocity_override
-   ; Velocity is handled in motion_eki.src
-   
-   ; Update abort_commands_flag
-   if meta.abort_commands == 1 then
-      $FLAG[3] = TRUE
-      msgnotify("Set abort_commands flag to TRUE", "Meta EKI")
-   else
-      $FLAG[3] = FALSE
-      ROBOT_STOPPED = FALSE
-      msgnotify("Set abort_commands flag to FALSE", "Meta EKI")
-   endif   
-end

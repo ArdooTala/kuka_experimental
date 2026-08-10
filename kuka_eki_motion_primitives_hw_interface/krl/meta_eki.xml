@@ -1,31 +1,60 @@
 <ETHERNETKRL>
    <CONFIGURATION>
       <EXTERNAL>
-         <TYPE>Client</TYPE>                       <!-- Users connect as clients -->
+         <TYPE>Client</TYPE>                <!-- Users connect as clients -->
       </EXTERNAL>
       <INTERNAL>
-         <ENVIRONMENT>Submit</ENVIRONMENT>        <!-- Server run via robot interpreter (Program / Submit / System) -->
-         <BUFFSIZE limit="2048" />
-         <BUFFERING Mode="FIFO" Limit="64" />     <!-- Mode: FIFO /LIFO | Limit: Buffering up to 512 messages (system max) -->
-         <ALIVE Set_Flag="2" />                    <!-- Use $flag[2] to indicate alive/good connection status -->
-         <IP>172.31.1.147</IP>                    <!-- IP address for EKI interface on robot controller (KRC) -->
-         <PORT>54601</PORT>                        <!-- Port of EKI interface on robot controller [54600, 54615] -->
-         <PROTOCOL>TCP</PROTOCOL>                  <!-- Use TCP / UDP protocol -->
+         <ENVIRONMENT>Submit</ENVIRONMENT>  <!-- Server run via robot interpreter (Program / Submit / System) -->
+         <ALIVE Set_Flag="2" />             <!-- Use $flag[2] to indicate alive/good connection status -->
+         <IP>0.0.0.0</IP>                   <!-- IP address for EKI interface on robot controller (KRC) -->
+         <PORT>54601</PORT>                 <!-- Port of EKI interface on robot controller [54600, 54615] -->
+         <PROTOCOL>UDP</PROTOCOL>           <!-- Use TCP / UDP protocol -->
       </INTERNAL>
    </CONFIGURATION>
    
    <RECEIVE>
-      <XML>
-         <!-- Command -->
-         <ELEMENT Tag="MetaCommand/@VelocityOverride" Type="REAL"/>
-         <ELEMENT Tag="MetaCommand/@AbortCommands" Type="INT"/>
-      </XML>
+       <RAW>
+           <ELEMENT Tag="RawData" Type="STREAM" EOS="0" />
+       </RAW>
    </RECEIVE>
    
    <SEND>
       <XML>
-         <ELEMENT Tag="MetaState/@VelocityOverride"/>
-         <ELEMENT Tag="MetaState/@CommandEmpty"/>
+         <!-- Joint state positions -->
+         <ELEMENT Tag="RobotState/Position/Joint/@A1"/>
+         <ELEMENT Tag="RobotState/Position/Joint/@A2"/>
+         <ELEMENT Tag="RobotState/Position/Joint/@A3"/>
+         <ELEMENT Tag="RobotState/Position/Joint/@A4"/>
+         <ELEMENT Tag="RobotState/Position/Joint/@A5"/>
+         <ELEMENT Tag="RobotState/Position/Joint/@A6"/>
+         <!-- External Axis state positions -->
+         <ELEMENT Tag="RobotState/Position/ExtAxis/@E1"/>
+         <ELEMENT Tag="RobotState/Position/ExtAxis/@E2"/>
+         <ELEMENT Tag="RobotState/Position/ExtAxis/@E3"/>
+         <ELEMENT Tag="RobotState/Position/ExtAxis/@E4"/>
+         <ELEMENT Tag="RobotState/Position/ExtAxis/@E5"/>
+         <ELEMENT Tag="RobotState/Position/ExtAxis/@E6"/>
+         <!-- Cartesian state positions -->
+         <ELEMENT Tag="RobotState/Position/Cartesian/@X"/>
+         <ELEMENT Tag="RobotState/Position/Cartesian/@Y"/>
+         <ELEMENT Tag="RobotState/Position/Cartesian/@Z"/>
+         <ELEMENT Tag="RobotState/Position/Cartesian/@A"/>
+         <ELEMENT Tag="RobotState/Position/Cartesian/@B"/>
+         <ELEMENT Tag="RobotState/Position/Cartesian/@C"/>
+         <!-- Joint state velocities -->
+         <ELEMENT Tag="RobotState/Velocity/@A1"/>
+         <ELEMENT Tag="RobotState/Velocity/@A2"/>
+         <ELEMENT Tag="RobotState/Velocity/@A3"/>
+         <ELEMENT Tag="RobotState/Velocity/@A4"/>
+         <ELEMENT Tag="RobotState/Velocity/@A5"/>
+         <ELEMENT Tag="RobotState/Velocity/@A6"/>
+         <!-- Joint state torques -->
+         <ELEMENT Tag="RobotState/Torque/@A1"/>
+         <ELEMENT Tag="RobotState/Torque/@A2"/>
+         <ELEMENT Tag="RobotState/Torque/@A3"/>
+         <ELEMENT Tag="RobotState/Torque/@A4"/>
+         <ELEMENT Tag="RobotState/Torque/@A5"/>
+         <ELEMENT Tag="RobotState/Torque/@A6"/>
       </XML>
    </SEND>
 </ETHERNETKRL>

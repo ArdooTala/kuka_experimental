@@ -20,35 +20,29 @@
 
 #include <thread>
 #include <iostream>
-#include <cmath>
 
 bool rbt::Robot::is_connected()
 {
-    return (!interface_used_ || interface_.is_connected());
+    return (!interface_used_ || interface_.is_connected()) && (!meta_interface_used_ || meta_interface_.is_connected());
 }
 
 bool rbt::Robot::connect(const std::string &host, int port, int meta_port)
 {
     std::cout << "[Robot] Trying to connect to the host: [" << host << "], port: [" << port << "], meta_port: [" << meta_port << "]" << std::endl;
     interface_used_ = port > 0;
+    meta_interface_used_ = meta_port > 0;
     
+    if (meta_interface_used_)
+    {
+        connect_to(meta_interface_, host, meta_port, true);
+    }
+
     if (interface_used_)
     {
-        connect_to(interface_, host, port);
+        connect_to(interface_, host, port, false);
     }
     std::cout << "[Robot] is_connected: " << is_connected() << std::endl;
     return is_connected();
-}
-
-void rbt::Robot::connect_async(const std::string &host, int port, int meta_port)
-{
-    std::thread thread = std::thread([this, host, port, meta_port]() {
-        this->connect(host, port, meta_port);
-
-        spin();
-    });
-
-    thread.detach();
 }
 
 void rbt::Robot::disconnect()
@@ -58,13 +52,11 @@ void rbt::Robot::disconnect()
         std::cout << "[Robot] Disconnecting EKI Interface ..." << std::endl;
         interface_.disconnect();
     }
-}
 
-void rbt::Robot::await_connection()
-{
-    while (!is_connected())
+    if (meta_interface_used_)
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        std::cout << "[Robot] Disconnecting Meta EKI Interface ..." << std::endl;
+        meta_interface_.disconnect();
     }
 }
 
@@ -156,17 +148,6 @@ bool rbt::Robot::run()
 }
 
 
-bool rbt::Robot::robot_in_movement()
-{
-    // Check if any joint velocity is above a threshold (positive or negative)
-    constexpr float velocity_threshold = 0.5f;
-    PoseJoints &v = state_.velocity;
-    return fabs(v.a1) > velocity_threshold || fabs(v.a2) > velocity_threshold ||
-           fabs(v.a3) > velocity_threshold || fabs(v.a4) > velocity_threshold ||
-           fabs(v.a5) > velocity_threshold || fabs(v.a6) > velocity_threshold;
-}
-
-
 void rbt::Robot::send_sequence()
 {
     XmlWriter writer;
@@ -192,12 +173,18 @@ void rbt::Robot::send_abort(bool abort)
     int size = interface_.send(writer.get_string());
 }
 
-void rbt::Robot::connect_to(rbt::EKInterface &interface, const std::string &host, int port)
+void rbt::Robot::connect_to(rbt::EKInterface &interface, const std::string &host, int port, bool udp)
 {
     while (!interface.is_connected())
     {
-        if (interface.connect_to(host, port))
+        if (interface.connect_to(host, port, udp))
         {
+            if (udp)
+            {
+                // EKI's UDP server may only start sending datagrams to the client after
+                // receiving a first packet (client address registration).
+                interface.send(";");
+            }
             call_listener(RobotEvent::CONNECT);
         }
         else
@@ -207,20 +194,18 @@ void rbt::Robot::connect_to(rbt::EKInterface &interface, const std::string &host
     }
 }
 
-void rbt::Robot::spin()
+void rbt::Robot::poll_state()
 {
-    std::string buffer;
-    std::string meta_buffer;
-
-    while (is_connected())
+    if (interface_used_)
     {
-        if (interface_used_)
-        {
-            std::string xml = collect_state_xml(interface_, buffer, "RobotState");
-            update_state(xml, false);
-        }
+        std::string xml = collect_state_xml(interface_, buffer_, "ProgramState");
+        update_state(xml, false);
+    }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(loop_delay_));
+    if (meta_interface_used_)
+    {
+        std::string meta_xml = collect_state_xml(meta_interface_, meta_buffer_, "RobotState");
+        update_state(meta_xml, true);
     }
 }
 
@@ -240,6 +225,13 @@ std::string rbt::Robot::collect_state_xml(EKInterface &interface, std::string &b
         return xml_message;
     }
 
+    // Guard against unbounded growth if the closing tag never arrives
+    // (e.g. tag mismatch or a malformed stream).
+    if (buffer.size() > 64 * 1024)
+    {
+        buffer.clear();
+    }
+
     return "";
 }
 
@@ -252,8 +244,21 @@ void rbt::Robot::update_state(std::string &xml_message, bool is_meta)
 
         if (!reader.has_error())
         {
-            state_.from_xml(reader);
-            active_sequence_.update(state_);
+            if (is_meta)
+            {
+                state_.from_xml(reader);
+            }
+            else
+            {
+                program_state_.from_xml(reader);
+                active_sequence_.update(program_state_.command_id, program_state_.command_status);
+
+                if (program_state_.status == 0)
+                {
+                    // EKI command buffer is empty -> the whole sequence is done.
+                    active_sequence_.finish();
+                }
+            }
 
             call_listener(RobotEvent::STATE);
 
@@ -268,6 +273,11 @@ void rbt::Robot::update_state(std::string &xml_message, bool is_meta)
             std::cout << "-> " << xml_message << std::endl;
         }
     }
+}
+
+void rbt::Robot::clear_waiting_commands()
+{
+    waiting_sequence_.clear();
 }
 
 void rbt::Robot::call_listener(RobotEvent event)

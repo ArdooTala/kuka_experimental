@@ -21,7 +21,6 @@
 
 #include <eki_common/default.h>
 #include <eki_communication/Command.h>
-#include <eki_communication/RobotState.h>
 
 namespace rbt
 {
@@ -42,14 +41,15 @@ namespace rbt
 
         int position() { return position_; }
 
-        void update(const RobotState &state);
+        void update(int command_id, int command_status);
+        void finish();
 
         void reset();
         void clear();
 
         void to_xml(XmlWriter &writer);
 
-        int size() { return commands_.size(); }
+        int size() const { return commands_.size(); }
         bool is_finished() { return position_ == size(); }
 
         int last_command_id() const
