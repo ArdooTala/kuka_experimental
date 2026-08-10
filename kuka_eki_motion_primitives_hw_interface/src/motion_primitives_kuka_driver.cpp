@@ -152,10 +152,14 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_activate(
   }
 
   RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Connecting to the robot ...");
-  robot_.connect_async(robot_ip_, eki_robot_port_, eki_robot_meta_port_);
-  robot_.await_connection();
+  robot_.connect(robot_ip_, eki_robot_port_, eki_robot_meta_port_);
+  if (!robot_.is_connected())
+  {
+    RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Failed to connect to the robot.");
+    return CallbackReturn::ERROR;
+  }
   RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Connected to the robot.");
-    RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "System Successfully activated!");
+  RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "System Successfully activated!");
 
   return CallbackReturn::SUCCESS;
 }

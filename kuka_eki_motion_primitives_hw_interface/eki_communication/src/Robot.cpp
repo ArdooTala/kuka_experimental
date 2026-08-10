@@ -20,7 +20,6 @@
 
 #include <thread>
 #include <iostream>
-#include <cmath>
 
 bool rbt::Robot::is_connected()
 {
@@ -46,17 +45,6 @@ bool rbt::Robot::connect(const std::string &host, int port, int meta_port)
     return is_connected();
 }
 
-void rbt::Robot::connect_async(const std::string &host, int port, int meta_port)
-{
-    std::thread thread = std::thread([this, host, port, meta_port]() {
-        this->connect(host, port, meta_port);
-
-        spin();
-    });
-
-    thread.detach();
-}
-
 void rbt::Robot::disconnect()
 {
     if (interface_used_)
@@ -69,14 +57,6 @@ void rbt::Robot::disconnect()
     {
         std::cout << "[Robot] Disconnecting Meta EKI Interface ..." << std::endl;
         meta_interface_.disconnect();
-    }
-}
-
-void rbt::Robot::await_connection()
-{
-    while (!is_connected())
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
 }
 

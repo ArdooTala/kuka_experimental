@@ -68,9 +68,7 @@ namespace rbt
 
         bool is_connected();
         bool connect(const std::string &host, int port, int meta_port = 0);
-        void connect_async(const std::string &host, int port, int meta_port = 0);
         void disconnect();
-        void await_connection();
 
         void perform(const MoveCommand &move);
         void perform(const GripCommand &grip);
