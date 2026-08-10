@@ -16,7 +16,6 @@ from kuka_eki_simulator.core.protocol import robot_state_xml
 from kuka_eki_simulator.core.robot import Robot
 
 CYCLE_TIME = 0.004  # seconds, motion channel update rate
-META_PERIOD = 0.01  # seconds, meta channel update rate (~100 Hz)
 
 
 def main(args=None):
@@ -67,7 +66,6 @@ def main(args=None):
         meta_server.start()
 
     last = time.monotonic()
-    next_meta = last + META_PERIOD
     try:
         while rclpy.ok():
             now = time.monotonic()
@@ -87,14 +85,19 @@ def main(args=None):
                 interpreter.enqueue(command)
 
             if meta_server is not None:
-                meta_server.register_client()
-                if now >= next_meta:
-                    meta_frame = robot_state_xml(robot)
-                    meta_server.send(meta_frame.encode("utf-8"))
-                    msg = String()
-                    msg.data = meta_frame
-                    meta_pub.publish(msg)
-                    next_meta = now + META_PERIOD
+                for request in meta_server.receive_requests():
+                    if request == MetaServer.UPDATE:
+                        meta_frame = robot_state_xml(robot)
+                        meta_server.send(meta_frame.encode("utf-8"))
+                        msg = String()
+                        msg.data = meta_frame
+                        meta_pub.publish(msg)
+                    elif request == MetaServer.DISCONNECT:
+                        node.get_logger().info("Meta channel reset requested")
+                    elif request == MetaServer.CLEAR:
+                        node.get_logger().info("Meta channel clear requested")
+                        meta_server.close()
+                        meta_server = None
 
             for frame in interpreter.tick(dt):
                 msg = String()

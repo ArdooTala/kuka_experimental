@@ -2,6 +2,7 @@
 
 import logging
 import socket
+import xml.etree.ElementTree as ET
 
 logger = logging.getLogger(__name__)
 
@@ -95,8 +96,13 @@ class MetaServer:
 
     The client registers itself by sending a first datagram (the driver sends
     a ";" ping right after connecting). State frames are only sent to the
-    registered client address.
+    registered client address, in reply to a <Request><Update/></Request>
+    datagram (mirroring meta_eki.src's request/response protocol).
     """
+
+    UPDATE = "update"
+    DISCONNECT = "disconnect"
+    CLEAR = "clear"
 
     def __init__(self, host, port):
         self.host = host
@@ -112,21 +118,43 @@ class MetaServer:
         self._socket.setblocking(False)
         logger.info("Meta server listening on %s:%d", self.host, self.port)
 
-    def register_client(self):
-        """Consume any pending datagrams and remember the sender address."""
+    def receive_requests(self):
+        """Consume pending datagrams and return the parsed request types."""
+        requests = []
         if self._socket is None:
-            return
+            return requests
         while True:
             try:
-                _, address = self._socket.recvfrom(1024)
+                data, address = self._socket.recvfrom(1024)
             except BlockingIOError:
-                return
+                return requests
             except OSError as error:
                 logger.error("Meta channel receive error: %s", error)
-                return
+                return requests
             if self._client != address:
                 logger.info("Meta channel client registered from %s", address)
             self._client = address
+            request = self._parse_request(data)
+            if request is not None:
+                requests.append(request)
+        return requests
+
+    def _parse_request(self, data):
+        """Return the request type of a datagram, or None for non-request frames."""
+        try:
+            root = ET.fromstring(data)
+        except ET.ParseError:
+            return None
+        if root.tag != "Request":
+            return None
+        for child in root:
+            if child.tag == "Update":
+                return self.UPDATE
+            if child.tag == "Disconnect":
+                return self.DISCONNECT
+            if child.tag == "Clear":
+                return self.CLEAR
+        return None
 
     def send(self, data):
         """Send bytes to the registered client, if any."""

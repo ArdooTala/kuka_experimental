@@ -11,8 +11,10 @@ This package contains components for simulation of KUKA robots using the KUKA.Ek
   with `<ProgramState>` frames (idle/executing/stopped, per-command
   started/finished/error) mirroring `krl/motion_eki.src`, including sequence
   handling and `<AbortCommands/>` / `<ResetAbortCommands/>`.
-- UDP meta channel (port 54601): streams `<RobotState>` kinematics at ~100 Hz
-  after the client registers with its first datagram.
+- UDP meta channel (port 54601): replies to each client
+  `<Request><Update/></Request>` datagram with one `<RobotState>` kinematics
+  frame (mirroring `krl/meta_eki.src`); `<Request><Disconnect/></Request>`
+  and `<Request><Clear/></Request>` are accepted as well.
 - PTP joint motions are simulated with synchronized constant-velocity moves
   (no acceleration). Cartesian (LIN/CIRC) modes are reported as errors.
 

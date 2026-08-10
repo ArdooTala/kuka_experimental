@@ -43,7 +43,7 @@ def cmd_result_xml(command_id, code=0, message=""):
 
 
 def robot_state_xml(robot):
-    """Build a <RobotState> kinematics frame from a Robot (meta channel, ~100 Hz)."""
+    """Build a <RobotState> kinematics frame from a Robot (meta channel, one frame per client request)."""
     root = ET.Element("RobotState")
     position = ET.SubElement(root, "Position")
 
