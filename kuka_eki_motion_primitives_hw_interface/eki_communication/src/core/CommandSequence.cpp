@@ -18,7 +18,7 @@
 //          Mathias Fuhrer
 
 #include <eki_communication/core/CommandSequence.h>
-#include <iostream>
+
 
 void rbt::CommandSequence::add(const rbt::Command &command)
 {
@@ -33,21 +33,22 @@ void rbt::CommandSequence::add(rbt::CommandSequence &sequence)
     }
 }
 
-void rbt::CommandSequence::update(const rbt::RobotState &state)
-{
-    int index = 0;
-
-    while (index < commands_.size())
+void rbt::CommandSequence::update(int command_id, int command_status) {
+    for (size_t index = 0; index < commands_.size(); ++index)
     {
-        if (commands_[index].id() == state.command_id)
+        if (commands_[index].id() == command_id)
         {
-            break;
+            position_ = index;
+            if (command_status > 1)
+                ++position_;
+            return;
         }
-
-        ++index;
     }
+}
 
-    position_ = index;
+void rbt::CommandSequence::finish()
+{
+    position_ = commands_.size();
 }
 
 void rbt::CommandSequence::reset()

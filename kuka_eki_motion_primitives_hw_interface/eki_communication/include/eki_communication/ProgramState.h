@@ -19,27 +19,21 @@
 
 #pragma once
 
+#include <string>
+
 #include <eki_communication/xml/XmlReader.h>
-#include <eki_communication/core/Types.h>
 
 namespace rbt
 {
-    class RobotState
+    class ProgramState
     {
-    private:
-        static int max_id_;
-        int id_ = 0;
-
     public:
-        RobotState() : id_(++max_id_) {}
-        ~RobotState() {}
-
-        int id() const { return id_; }
-
-        PoseJoints position_joints;
-        PoseCartesian position_cartesian;
-        PoseJoints velocity;
-        PoseJoints torque;
+        int status = 0;              // ProgramState/State/@Status: 0 idle, 1 executing, 5 stopped
+        bool stopped = false;        // ProgramState/State/@Stopped
+        int command_id = 0;          // ProgramState/Command/@Id
+        int command_status = 0;      // ProgramState/Command/State/@Status: 1 started, 2 finished, 3 error
+        int error_code = 0;          // ProgramState/Error/@Code
+        std::string error_message;   // ProgramState/Error/@Message
 
         void from_xml(XmlReader &reader);
     };

@@ -202,20 +202,17 @@ void rbt::Robot::connect_to(rbt::EKInterface &interface, const std::string &host
 
 void rbt::Robot::spin()
 {
-    std::string buffer;
-    std::string meta_buffer;
-
     while (is_connected())
     {
         if (interface_used_)
         {
-            std::string xml = collect_state_xml(interface_, buffer, "RobotState");
+            std::string xml = collect_state_xml(interface_, buffer_, "ProgramState");
             update_state(xml, false);
         }
 
         if (meta_interface_used_)
         {
-            std::string meta_xml = collect_state_xml(meta_interface_, meta_buffer, "MetaState");
+            std::string meta_xml = collect_state_xml(meta_interface_, meta_buffer_, "RobotState");
             update_state(meta_xml, true);
         }
 
@@ -253,12 +250,12 @@ void rbt::Robot::update_state(std::string &xml_message, bool is_meta)
         {
             if (is_meta)
             {
-                meta_state_.from_xml(reader);
+                state_.from_xml(reader);
             }
             else
             {
-                state_.from_xml(reader);
-                active_sequence_.update(state_);
+                program_state_.from_xml(reader);
+                active_sequence_.update(program_state_.command_id, program_state_.command_status);
             }
 
             call_listener(RobotEvent::STATE);
