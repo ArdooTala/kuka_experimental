@@ -55,6 +55,10 @@ void rbt::Robot::disconnect()
 
     if (meta_interface_used_)
     {
+        if (meta_interface_.is_connected())
+        {
+            meta_interface_.send("<Request><Disconnect/></Request>");
+        }
         std::cout << "[Robot] Disconnecting Meta EKI Interface ..." << std::endl;
         meta_interface_.disconnect();
     }
@@ -199,6 +203,7 @@ void rbt::Robot::poll_state()
 
     if (meta_interface_used_)
     {
+        meta_interface_.send("<Request><Update/></Request>");
         std::string meta_xml = collect_state_xml(meta_interface_, meta_buffer_, "RobotState");
         update_state(meta_xml, true);
     }
