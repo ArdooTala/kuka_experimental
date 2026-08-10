@@ -4,8 +4,8 @@
          <TYPE>Client</TYPE>                <!-- Users connect as clients -->
       </EXTERNAL>
       <INTERNAL>
-         <ENVIRONMENT>Submit</ENVIRONMENT>  <!-- Server run via robot interpreter (Program / Submit / System) -->
-         <ALIVE Set_Flag="2" />             <!-- Use $flag[2] to indicate alive/good connection status -->
+         <ENVIRONMENT>Program</ENVIRONMENT>  <!-- Server run via robot interpreter (Program / Submit / System) -->
+         <ALIVE Set_Flag="11" />             <!-- Use $flag[2] to indicate alive/good connection status -->
          <IP>0.0.0.0</IP>                   <!-- IP address for EKI interface on robot controller (KRC) -->
          <PORT>54601</PORT>                 <!-- Port of EKI interface on robot controller [54600, 54615] -->
          <PROTOCOL>UDP</PROTOCOL>           <!-- Use TCP / UDP protocol -->
@@ -13,9 +13,11 @@
    </CONFIGURATION>
    
    <RECEIVE>
-       <RAW>
-           <ELEMENT Tag="RawData" Type="STREAM" EOS="0" />
-       </RAW>
+       <XML>
+         <ELEMENT Tag="Request/Update" Set_Flag="12"/>
+         <ELEMENT Tag="Request/Disconnect" Set_Flag="13"/>
+         <ELEMENT Tag="Request/Clear" Set_Flag="14"/>
+      </XML>
    </RECEIVE>
    
    <SEND>

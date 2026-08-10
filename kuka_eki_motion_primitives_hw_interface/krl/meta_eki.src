@@ -1,0 +1,180 @@
+&ACCESS RVP
+&REL 10
+def meta_eki()
+   ; Software License Agreement (BSD License)
+   ;
+   ; Copyright (c) 2018, 3M
+   ; Modifications copyright (c) 2021 Gergely Sóti
+   ; All rights reserved.
+   ;
+   ; Redistribution and use in source and binary forms, with or without
+   ; modification, are permitted provided that the following conditions are met:
+   ;
+   ;      * Redistributions of source code must retain the above copyright
+   ;        notice, this list of conditions and the following disclQaimer.
+   ;      * Redistributions in binary form must reproduce the above copyright
+   ;        notice, this list of conditions and the following disclaimer in the
+   ;        documentation and/or other materials provided with the distribution.
+   ;      * Neither the name of the copyright holder, nor the names of its
+   ;        contributors may be used to endorse or promote products derived
+   ;        from this software without specific prior written permission.
+   ;
+   ; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+   ; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   ; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+   ; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+   ; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+   ; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+   ; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+   ; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+   ; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+   ; POSSIBILITY OF SUCH DAMAGE.
+   
+   ; This software is derived work of Brett Hemes (3M) <brhemes@mmm.com>
+   ; Adaptation by Gergely Sóti, H-KA iRAS Prof. Hein, 2021; gergely.soti@h-ka.de
+   ;
+   ; Modifications: Moritz Weisenboehler (H-KA) <moritz.weisenboehler@h-ka.de>
+   ; Modifications: Mathias Fuhrer <mathias.fuhrer@b-robotized.de>
+   
+   ; Declarations
+   decl int index
+   
+   $BASE = $NULLFRAME
+   $TOOL = $NULLFRAME
+   
+   ; Initialization
+   init_meta_interface()
+   WAIT FOR $flag[11]
+   
+   ;FOR index = 0 TO 20 STEP 1
+      ;send_meta_status()
+      ;wait sec 0.1
+   ;ENDFOR
+   
+   WHILE $flag[14] == false
+      handle_meta_request()
+   ENDWHILE
+   
+   clear_meta_interface()
+end
+
+def init_meta_interface()
+   decl eki_status status
+   msgnotify("Init meta interface", "Meta EKI")
+   
+   $flag[11] = false
+   global interrupt decl 21 when $flag[11] do start_meta_eki()
+   interrupt on 21
+   
+   status = eki_init("META_EKI")
+   status = eki_open("META_EKI")
+end
+
+def handle_meta_request()
+   IF has_meta_connection() == false THEN
+      return
+   ENDIF
+   
+   IF $flag[12] AND $timer_flag[2] THEN
+      $timer[2] = -20         ; Time in [ms]
+      $timer[3] = -5000
+      
+      send_meta_status()
+      $flag[12] = false
+   ENDIF
+   
+   IF $flag[13] OR $timer_flag[3] THEN
+      reset_meta_interface()
+   ENDIF
+   
+   IF $flag[14] THEN
+      clear_meta_interface()
+   ENDIF
+end
+
+def start_meta_eki()
+   $timer[2] = -20         ; Time in [ms]
+   $timer_stop[2] = false   ; Start timer 2
+   
+   $timer[3] = -5000        ; Time in [ms]
+   $timer_stop[3] = false   ; Start timer 3
+end
+
+def reset_meta_interface()
+   decl eki_status status
+   msgnotify("Reset meta interface", "Meta EKI")
+   
+   status = eki_close("META_EKI")
+   
+   $timer_stop[2] = true   ; Stop timer 2
+   $timer[2] = -20         ; Time in [ms]
+   
+   $timer_stop[3] = true   ; Stop timer 3
+   $timer[3] = -5000
+   
+   $flag[12] = false
+   $flag[13] = false
+   
+   status = eki_open("META_EKI")
+end
+
+def clear_meta_interface()
+   decl eki_status status
+   msgnotify("Clear meta interface, CIAO...", "Meta EKI")
+   interrupt off 21
+   
+   status = eki_clear("META_EKI")
+   
+   $timer_stop[2] = true
+   $timer_stop[3] = true
+   $flag[12] = false
+   $flag[13] = false
+end
+
+
+deffct bool has_meta_connection()
+   return $flag[11]
+endfct
+
+def send_meta_status()
+   decl eki_status status
+   msgnotify("sending meta", "Meta EKI")
+   if has_meta_connection() then
+      msgnotify("compiling meta payload", "Meta EKI")
+      ;("Send meta status", "Meta EKI")
+      ; Joint position
+      status = eki_setreal("META_EKI", "RobotState/Position/Joint/@A1", $axis_act_meas.a1)
+      status = eki_setreal("META_EKI", "RobotState/Position/Joint/@A2", $axis_act_meas.a2)
+      status = eki_setreal("META_EKI", "RobotState/Position/Joint/@A3", $axis_act_meas.a3)
+      status = eki_setreal("META_EKI", "RobotState/Position/Joint/@A4", $axis_act_meas.a4)
+      status = eki_setreal("META_EKI", "RobotState/Position/Joint/@A5", $axis_act_meas.a5)
+      status = eki_setreal("META_EKI", "RobotState/Position/Joint/@A6", $axis_act_meas.a6)
+      ; Cartesian position
+      status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@X", $pos_act.x)
+      status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@Y", $pos_act.y)
+      status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@Z", $pos_act.z)
+      status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@A", $pos_act.a)
+      status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@B", $pos_act.b)
+      status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@C", $pos_act.c)
+      ; Velocity
+      status = eki_setreal("META_EKI", "RobotState/Velocity/@A1", $vel_axis_act[1] * $vel_axis_ma[1] / 100.0)
+      status = eki_setreal("META_EKI", "RobotState/Velocity/@A2", $vel_axis_act[2] * $vel_axis_ma[2] / 100.0)
+      status = eki_setreal("META_EKI", "RobotState/Velocity/@A3", $vel_axis_act[3] * $vel_axis_ma[3] / 100.0)
+      status = eki_setreal("META_EKI", "RobotState/Velocity/@A4", $vel_axis_act[4] * $vel_axis_ma[4] / 100.0)
+      status = eki_setreal("META_EKI", "RobotState/Velocity/@A5", $vel_axis_act[5] * $vel_axis_ma[5] / 100.0)
+      status = eki_setreal("META_EKI", "RobotState/Velocity/@A6", $vel_axis_act[6] * $vel_axis_ma[6] / 100.0)
+      ; Torque
+      status = eki_setreal("META_EKI", "RobotState/Torque/@A1", $torque_axis_act[1])
+      status = eki_setreal("META_EKI", "RobotState/Torque/@A2", $torque_axis_act[2])
+      status = eki_setreal("META_EKI", "RobotState/Torque/@A3", $torque_axis_act[3])
+      status = eki_setreal("META_EKI", "RobotState/Torque/@A4", $torque_axis_act[4])
+      status = eki_setreal("META_EKI", "RobotState/Torque/@A5", $torque_axis_act[5])
+      status = eki_setreal("META_EKI", "RobotState/Torque/@A6", $torque_axis_act[6])
+      
+      if has_meta_connection() then
+         msgnotify("meta sent", "Meta EKI")
+         status = eki_send("META_EKI", "RobotState")
+      endif
+   endif
+end
