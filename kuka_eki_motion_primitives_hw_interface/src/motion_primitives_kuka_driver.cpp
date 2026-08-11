@@ -448,7 +448,6 @@ bool MotionPrimitivesKukaDriver::add_linear_cartesian_cmd()
   double a, b, c;
   quaternionToKukaABC(hw_mo_prim_commands_pos_[3], hw_mo_prim_commands_pos_[4], hw_mo_prim_commands_pos_[5], hw_mo_prim_commands_pos_[6], a, b, c);
 
-
   std::vector<double> pose = {
     hw_mo_prim_commands_pos_[0] * 1000.0, // from m to mm
     hw_mo_prim_commands_pos_[1] * 1000.0,
@@ -457,6 +456,7 @@ bool MotionPrimitivesKukaDriver::add_linear_cartesian_cmd()
 
   rbt::MoveCommand command;
   command = rbt::MoveCommand(rbt::PoseCartesian(pose[0], pose[1], pose[2], pose[3], pose[4], pose[5]), true);
+  add_ext_axes_to_command(command);
   add_vel_and_acc_to_command(command);
   add_blending_to_command(command);
   RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), 
@@ -504,6 +504,7 @@ bool MotionPrimitivesKukaDriver::add_circular_cartesian_cmd()
   rbt::MoveCommand command;
   command = rbt::MoveCommand(rbt::PoseCartesian(via_pose[0], via_pose[1], via_pose[2], via_pose[3], via_pose[4], via_pose[5]),
                              rbt::PoseCartesian(goal_pose[0], goal_pose[1], goal_pose[2], goal_pose[3], goal_pose[4], goal_pose[5]));
+  add_ext_axes_to_command(command);
   add_vel_and_acc_to_command(command);
   add_blending_to_command(command);
   RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), 
