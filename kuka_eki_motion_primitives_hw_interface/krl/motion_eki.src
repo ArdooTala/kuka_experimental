@@ -1,10 +1,10 @@
-&ACCESS RVP
-&REL 48
+&ACCESS RVO
+&REL 50
 def motion_eki()
    ; Software License Agreement (BSD License)
    ;
    ; Copyright (c) 2018, 3M
-   ; Modifications copyright (c) 2021 Gergely SÃ³ti
+   ; Modifications copyright (c) 2021 Gergely Sóti
    ; All rights reserved.
    ;
    ; Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@ def motion_eki()
    ; POSSIBILITY OF SUCH DAMAGE.
 
    ; This software is derived work of Brett Hemes (3M) <brhemes@mmm.com>
-   ; Adaptation by Gergely SÃ³ti, H-KA iRAS Prof. Hein, 2021; gergely.soti@h-ka.de
+   ; Adaptation by Gergely Sóti, H-KA iRAS Prof. Hein, 2021; gergely.soti@h-ka.de
    ;
    ; Modifications: Moritz Weisenboehler (H-KA) <moritz.weisenboehler@h-ka.de>
    ; Modifications: Mathias Fuhrer <mathias.fuhrer@b-robotized.de>
@@ -44,7 +44,10 @@ def motion_eki()
    ; Initialization
    bas(#initmov, 0)
    
-   init_interface()
+   $flag[CONN_FLAG]=FALSE
+   $flag[STOP_FLAG]=FALSE
+   $flag[RESET_STOP_FLAG]=FALSE
+   
    current_command = null_command()
    CURRENT_COMMAND_ID = 0
    LAST_FINISHED_MOVE_ID = 0
@@ -55,7 +58,7 @@ def motion_eki()
    act_joint_acc = 1.0   ; 100%
    act_cart_vel = 0 ; modify default value if needed
    act_cart_acc = 0 ; modify default value if needed
-
+   
    index = 0
    
    for index = 1 to 10
@@ -82,35 +85,38 @@ def motion_eki()
    ; Reference gripper
    ControlWord = 0
    DeviceMode = 10 
-
-   interrupt decl 19 when $flag[3] == true do stop_movement()  ;local interrupt to use RESUME
- 
+   
+   interrupt with brake decl 19 when $flag[STOP_FLAG] == true do stop_movement()  ;local interrupt to use RESUME
+   
+   init_interface()
+   WAIT FOR $FLAG[CONN_FLAG]
+   
    ; Communication process
    loop
       ; Stop looping if the robot is in stopped state.
       if ROBOT_STOPPED == true then
-         wait for $flag[3] == false
+         wait for $flag[STOP_FLAG] == false
       endif
 
       if get_command(current_command) then
          CURRENT_COMMAND_ID = current_command.id
-         send_prg_state(1)
-         send_cmd_state(current_command.id, 1)
+         send_prg_state(STATE_EXECUTING)
+         send_cmd_state(current_command.id, STATE_EXECUTING)
 
          switch current_command.type
-            case 1
+            case CMD_TYPE_MOVEGRIP
                ;do_grip(current_command.grip_data)
-               do_move(current_command.step, current_command.move_data, current_command.id)
-            case 2
-               do_move(current_command.step, current_command.move_data, current_command.id)
-            case 3
-               do_grip(current_command.grip_data)
+               LAST_ERROR_CODE = do_move(current_command.move_data, current_command.id)
+            case CMD_TYPE_MOVE
+               LAST_ERROR_CODE = do_move(current_command.move_data, current_command.id)
+            case CMD_TYPE_GRIP
+               LAST_ERROR_CODE = do_grip(current_command.grip_data)
          endswitch
       else
          wait sec 0
          CURRENT_COMMAND_ID = 0
-         if (LAST_SENT_STATUS <> 0) then
-            send_prg_state(0)
+         if (LAST_SENT_STATUS <> STATE_IDLE) then
+            send_prg_state(STATE_IDLE)
          endif
       endif
    endloop 
@@ -118,7 +124,7 @@ def motion_eki()
 end
 
 deffct command_type null_command()
-   decl axis joint
+   decl e6axis joint
    decl frame cartesian
    decl frame cartesian_aux
    decl move_type move_data
@@ -128,6 +134,7 @@ deffct command_type null_command()
    decl command_type command
    
    move_data = { mode 0, base_index 0, tool_index 0, wait_for_gripper 0, teached 0, velocity 0, acceleration 0, blending 0}
+
    joint = { a1 0, a2 0, a3 0, a4 0, a5 0, a6 0}
    move_data.joint = joint
    cartesian = { x 0, y 0, z 0, a 0, b 0, c 0 }
@@ -154,20 +161,19 @@ def init_interface()
    msgnotify("Init motion interface", "Motion EKI")
    
    ; NOTE: for testing/ implementiong krl files its more convenient to use close_interface() instead of reset_interface()
-   global interrupt decl 15 when $flag[1] == false do close_interface()
+   global interrupt decl 15 when $flag[CONN_FLAG] == false do close_interface()
    interrupt on 15
    
-   global interrupt decl 17 when $flag[4] == true do reset_stop_movement()
+   global interrupt decl 17 when $flag[RESET_STOP_FLAG] == true do reset_stop_movement()
    interrupt on 17
    
    wait sec 0.012          ; Wait for next interpolation cycle
-   $FLAG[3] = FALSE        ; reset abort_commands flag
-   $FLAG[4] = FALSE        ; reset reset_abort_commands flag
+   $FLAG[STOP_FLAG] = FALSE        ; reset abort_commands flag
+   $FLAG[RESET_STOP_FLAG] = FALSE        ; reset reset_abort_commands flag
    
    status = eki_init("MOTION_EKI")
    status = eki_open("MOTION_EKI")
 end
-
 
 def reset_interface()
    decl eki_status status
@@ -182,11 +188,11 @@ def close_interface()
    decl eki_status status
    msgnotify("Close motion interface", "Motion EKI")
    status = eki_close("MOTION_EKI")
+   status = eki_clear("MOTION_EKI")
 end
 
-
 deffct bool has_connection()
-   return $flag[1]
+   return $flag[CONN_FLAG]
 endfct
 
 
@@ -223,7 +229,7 @@ def send_cmd_state(cmd_id :in, status_code :in)
 end
 
 
-def int send_cmd_result(cmd_id :in, error_code :in)
+global def send_cmd_result(cmd_id :in, error_code :in)
    decl int cmd_id, error_code
    
    decl eki_status status
@@ -237,12 +243,14 @@ def int send_cmd_result(cmd_id :in, error_code :in)
       error_message[index] = " "
    endfor
    
-   status_code = 2
+   status_code = STATE_SUCCESS
    if error_code > 0 then
-      status_code = 3
+      status_code = STATE_ERROR
       switch error_code
          case 1
             error_message[] = "Fehler 1"
+         case 2
+            error_message[] = "Invalid Custom Command Index"
          default
             error_message[] = "Unbekannter Fehler"
       endswitch
@@ -251,8 +259,8 @@ def int send_cmd_result(cmd_id :in, error_code :in)
    if has_connection() then
       status = eki_setint("MOTION_EKI", "ProgramState/Command/@Id", cmd_id)
       status = eki_setint("MOTION_EKI", "ProgramState/Command/State/@Status", status_code)
-      status = eki_setint("MOTION_EKI", "ProgramState/Error/@Code", error_code)
-      status = eki_setstring("MOTION_EKI", "ProgramState/Error/@Message", error_message[])
+      status = eki_setint("MOTION_EKI", "ProgramState/Command/Error/@Code", error_code)
+      status = eki_setstring("MOTION_EKI", "ProgramState/Command/Error/@Message", error_message[])
 
       if has_connection() then
          status = eki_send("MOTION_EKI", "ProgramState/Command")
@@ -262,11 +270,10 @@ def int send_cmd_result(cmd_id :in, error_code :in)
     msgnotify("Command with ID %1 done","Motion EKI",cmd_id)
 end
 
-
 deffct bool has_command()
    decl eki_status status
    
-   if not $flag[1] then
+   if not has_connection() then
       return false
    endif
 
@@ -275,18 +282,21 @@ deffct bool has_command()
    return status.buff > 0
 endfct
 
-
 deffct bool get_command(command :out)
    decl command_type command
-   
    decl eki_status status
    
    if not has_command() then
-     return false
+      return false
    endif
    
    status = eki_getint("MOTION_EKI", "RobotCommand/@Id", command.id)
    status = eki_getint("MOTION_EKI", "RobotCommand/@Type", command.type)
+   
+   ;Check if it was a stop command
+   if command.type == CMD_TYPE_STOP then
+      return false
+   endif
    
    status = eki_getint("MOTION_EKI", "RobotCommand/Move/@Mode", command.move_data.mode)
    status = eki_getint("MOTION_EKI", "RobotCommand/Move/@BaseIndex", command.move_data.base_index)
@@ -336,57 +346,35 @@ deffct bool get_command(command :out)
    return true
 endfct
 
-
-deffct int do_move(step :in, move_data :in, cmd_id :in)
-   decl int step
+deffct int do_move(move_data :in, cmd_id :in)
    decl move_type move_data
    decl int cmd_id
    decl int error_code
+   
    error_code = 0
    
    temp_cmd_id = cmd_id
    
-   if move_data.base_index > 0 then
-      $base = base_data[move_data.base_index]
-   else 
-      $base = $nullframe
-   endif
-
-   if move_data.tool_index > 0 then
-      $tool = tool_data[move_data.tool_index]
-   else 
-      $tool = $nullframe
-   endif
+   set_base(move_data.base_index)
+   set_tool(move_data.tool_index)
    
+   set_vel_acc(move_data)
    set_blending(move_data.blending)
-
-   INTERRUPT ON 19   ; enable interrupt to stop movement
+   
+   INTERRUPT ON 19
+   TRIGGER WHEN DISTANCE=1 DELAY=0 DO send_cmd_result(temp_cmd_id, 0) PRIO=-1
    switch (move_data.mode)
-      case 1
-         set_joint_vel(move_data.velocity)
-         set_joint_acc(move_data.acceleration)
-         TRIGGER WHEN DISTANCE=1 DELAY=0 DO send_cmd_result(temp_cmd_id, 0) PRIO=-1
+      case MOVE_MODE_PTP_AXIS
          ptp move_data.joint c_ptp C_DIS
-      case 2
-         set_joint_vel(move_data.velocity)
-         set_joint_acc(move_data.acceleration)
-         TRIGGER WHEN DISTANCE=1 DELAY=0 DO send_cmd_result(temp_cmd_id, 0) PRIO=-1
+      case MOVE_MODE_PTP_POS
          ptp move_data.cartesian c_ptp C_DIS
-      case 3
-         set_cart_vel(move_data.velocity)
-         set_cart_acc(move_data.acceleration)
-         TRIGGER WHEN DISTANCE=1 DELAY=0 DO send_cmd_result(temp_cmd_id, 0) PRIO=-1
+      case MOVE_MODE_LIN_POS
          lin move_data.cartesian C_DIS
       ;case 4
-      ;   INTERRUPT ON 19
       ;   ptp teached_points[move_data.teached] c_ptp C_DIS
-      ;   INTERRUPT OFF 19
       ;case 5
       ;   lin teached_points[move_data.teached]
-      case 6
-         set_cart_vel(move_data.velocity)
-         set_cart_acc(move_data.acceleration)
-         TRIGGER WHEN DISTANCE=1 DELAY=0 DO send_cmd_result(temp_cmd_id, 0) PRIO=-1
+      case MOVE_MODE_CIRC_POS
          circ move_data.cartesian_aux, move_data.cartesian C_DIS
    endswitch
    INTERRUPT OFF 19
@@ -446,7 +434,6 @@ deffct int do_grip(grip_data :in)
       $out[1108] = grip_data.jaw.direction_mode == 0
       $out[1109] = grip_data.jaw.direction_mode == 1
       
-      
       if $out[1109] == true then 
          ;wait sec 1
       endif
@@ -463,13 +450,12 @@ deffct int do_grip(grip_data :in)
    return error_code
 endfct
 
-
 def stop_movement()
    decl eki_status status
-   msgnotify("Stopping Robot immediately with BREAK", "Motion EKI")
    
-   ; Immediately stop the robot
    BRAKE
+   
+   msgnotify("Stopping Robot immediately with BREAK", "Motion EKI")
    
    ; Clear the command buffer to prevent further motion
    status = eki_clearbuffer("MOTION_EKI", "RobotCommand")
@@ -482,10 +468,10 @@ def stop_movement()
    ; Reset current command to ensure a clean restart
    current_command = null_command()
    ; Clear the "Reset Stop" flag
-   $flag[4] = false
+   $flag[RESET_STOP_FLAG] = false
    ROBOT_STOPPED = true
     
-   send_prg_state(5)
+   send_prg_state(STATE_STOPPED)
 
    ; wait one cycle
    WAIT sec 0.012
@@ -494,11 +480,36 @@ def stop_movement()
 end
 
 def reset_stop_movement()
-   $FLAG[3] = FALSE
-   $FLAG[4] = FALSE
+   $FLAG[STOP_FLAG] = FALSE
+   $FLAG[RESET_STOP_FLAG] = FALSE
    ROBOT_STOPPED = FALSE
    msgnotify("Set abort_commands to FALSE", "Meta EKI")
-   send_prg_state(0)
+   send_prg_state(STATE_IDLE)
+end
+
+def set_base(index :in)
+   decl int index
+   
+   bas(#BASE, index)
+end
+
+def set_tool(index :in)
+   decl int index
+   
+   bas(#TOOL, index)
+end
+
+def set_vel_acc(move_data :in)
+   decl move_type move_data
+   
+   switch (move_data.mode)
+      case MOVE_MODE_PTP_AXIS, MOVE_MODE_PTP_POS
+         set_joint_vel(move_data.velocity)
+         set_joint_acc(move_data.acceleration)
+      case MOVE_MODE_LIN_POS, MOVE_MODE_CIRC_POS
+         set_cart_vel(move_data.velocity)
+         set_cart_acc(move_data.acceleration)
+   endswitch
 end
 
 def set_joint_vel(velocity :in)

@@ -5,10 +5,10 @@
       </EXTERNAL>
       <INTERNAL>
          <ENVIRONMENT>Program</ENVIRONMENT>        <!-- Server run via robot interpreter (Program / Submit / System) -->
-         <BUFFSIZE limit="4096" />
+         <BUFFSIZE limit="65534" />
          <BUFFERING Mode="FIFO" Limit="128" />     <!-- Mode: FIFO /LIFO | Limit: Buffering up to *limit* messages (system max) -->
          <ALIVE Set_Flag="1" />                    <!-- Use $flag[1] to indicate alive/good connection status -->
-         <IP>172.31.1.147</IP>                    <!-- IP address for EKI interface on robot controller (KRC) -->
+         <IP>0.0.0.0</IP>                          <!-- IP address for EKI interface on robot controller (KRC) -->
          <PORT>54600</PORT>                        <!-- Port of EKI interface on robot controller [54600, 54615] -->
          <PROTOCOL>TCP</PROTOCOL>                  <!-- Use TCP / UDP protocol -->
       </INTERNAL>
@@ -36,7 +36,6 @@
          <ELEMENT Tag="RobotCommand/Move/Joint/@A4" Type="REAL"/>
          <ELEMENT Tag="RobotCommand/Move/Joint/@A5" Type="REAL"/>
          <ELEMENT Tag="RobotCommand/Move/Joint/@A6" Type="REAL"/>
-         <ELEMENT Tag="RobotCommand/Move/Joint/@A7" Type="REAL"/>
          <!-- Move cartesian positions -->
          <ELEMENT Tag="RobotCommand/Move/Cartesian/@X" Type="REAL"/>
          <ELEMENT Tag="RobotCommand/Move/Cartesian/@Y" Type="REAL"/>
@@ -67,6 +66,8 @@
          <!-- Grip vacuum -->
          <ELEMENT Tag="RobotCommand/Grip/Vacuum/@Suction" Type="INT"/>
          <ELEMENT Tag="RobotCommand/Grip/Vacuum/@Cylinder" Type="REAL"/>
+         <!-- Custom command -->
+         <ELEMENT Tag="RobotCommand/CustomCmd/@CmdIndex" Type="INT"/>
       </XML>
    </RECEIVE>
    

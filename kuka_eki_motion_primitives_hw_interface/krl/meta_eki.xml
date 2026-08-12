@@ -4,7 +4,7 @@
          <TYPE>Client</TYPE>                <!-- Users connect as clients -->
       </EXTERNAL>
       <INTERNAL>
-         <ENVIRONMENT>Program</ENVIRONMENT>  <!-- Server run via robot interpreter (Program / Submit / System) -->
+         <ENVIRONMENT>Submit</ENVIRONMENT>  <!-- Server run via robot interpreter (Program / Submit / System) -->
          <ALIVE Set_Flag="11" />             <!-- Use $flag[2] to indicate alive/good connection status -->
          <IP>0.0.0.0</IP>                   <!-- IP address for EKI interface on robot controller (KRC) -->
          <PORT>54601</PORT>                 <!-- Port of EKI interface on robot controller [54600, 54615] -->

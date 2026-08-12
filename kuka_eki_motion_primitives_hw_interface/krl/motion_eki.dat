@@ -1,41 +1,63 @@
-&ACCESS RVP
-&REL 48
-defdat motion_eki
+&ACCESS RVO
+&REL 50
+defdat motion_eki public
    ext bas(bas_command :in, real :in)
-   struc move_type int mode, base_index, tool_index, wait_for_gripper, teached, real velocity, acceleration, blending, axis joint, frame cartesian, frame cartesian_aux
+   
+   
+   ; Constants
+   ; State codes for commands and program:
+   decl const int STATE_IDLE=0
+   decl const int STATE_EXECUTING=1
+   decl const int STATE_SUCCESS=2
+   decl const int STATE_ERROR=3
+   decl const int STATE_STOPPING=4
+   decl const int STATE_STOPPED=5
+   
+   ; Command Type codes:
+   decl const int CMD_TYPE_MOVEGRIP=1
+   decl const int CMD_TYPE_MOVE=2
+   decl const int CMD_TYPE_GRIP=3
+   decl const int CMD_TYPE_STOP=4
+   
+   ; Move Mode codes:
+   decl const int MOVE_MODE_PTP_AXIS=1
+   decl const int MOVE_MODE_PTP_POS=2
+   decl const int MOVE_MODE_LIN_POS=3
+   decl const int MOVE_MODE_CIRC_POS=6
+   
+   ; Flags:
+   decl const int CONN_FLAG = 1
+   decl const int STOP_FLAG = 3
+   decl const int RESET_STOP_FLAG = 4
+   
+   
+   ; Type definitions
+   struc move_type int mode, base_index, tool_index, wait_for_gripper, teached, real velocity, acceleration, blending, e6axis joint, e6pos cartesian, e6pos cartesian_aux
    struc jaw_type int tolerance, velocity, force, base_pos, work_pos, teach_pos, shift_pos, direction_mode
    struc vacuum_type int suction, real cylinder
    struc grip_type int mode, jaw_type jaw, vacuum_type vacuum
    struc command_type int id, step, type, move_type move_data, grip_type grip_data
+   
+   
+   ; Variable declarations
+   decl global bool ROBOT_STOPPED
+   
    decl command_type current_command
-   decl axis teached_points[10]
    
-   ; State codes for prg and cmd:
-   ;    IDLE=0
-   ;    EXECUTING=1
-   ;    SUCCESS=2
-   ;    ERROR=3
-   ;    STOPPING=4
-   ;    STOPPED=5
-
-   decl real act_joint_vel
-   decl real act_joint_acc
-   decl real act_cart_vel
-   decl real act_cart_acc
-   
-   decl real max_joint_vel
-   decl real max_joint_acc
-   
-   decl int CURRENT_COMMAND_ID
-   decl int LAST_FINISHED_MOVE_ID
-   decl int LAST_SENT_STATUS
+   decl real act_joint_vel, act_joint_acc
+   decl real act_cart_vel, act_cart_acc
+   decl real max_joint_vel, max_joint_acc
    
    decl int temp_cmd_id
    
+   decl int CURRENT_COMMAND_ID
+   decl int LAST_FINISHED_MOVE_ID
+   decl int LAST_ERROR_CODE
+   decl int LAST_SENT_STATUS
+   
+   decl axis teached_points[10]
    decl int ControlWord
    decl int DeviceMode
-   decl int ActualPosition
-   decl int StatusWord
    decl int WorkpieceNo
    decl int PositionTolerance
    decl int GripForce
