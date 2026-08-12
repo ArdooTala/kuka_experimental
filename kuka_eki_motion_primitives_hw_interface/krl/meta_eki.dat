@@ -1,6 +1,16 @@
 &ACCESS RVO
-&REL 48
-defdat meta_eki
-   struc meta_type real velocity_override, int abort_commands
-   decl meta_type current_meta
+&REL 10
+defdat meta_eki public
+   decl const int META_START_INTR = 21
+   
+   decl const int META_CONN_FLAG = 11
+   decl const int META_STAT_REQ_FLAG = 12
+   decl const int META_DC_REQ_FLAG = 13
+   decl const int META_KILL_FLAG = 14
+   
+   decl const int META_STAT_TIMER = 2
+   decl const int META_IDLE_TIMER = 3
+   
+   decl const int META_STAT_COOLDOWN = 20
+   decl const int META_IDLE_TIMEOUT = 5000
 enddat

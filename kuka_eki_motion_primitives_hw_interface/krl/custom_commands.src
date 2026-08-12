@@ -1,4 +1,4 @@
-&ACCESS RV1
+&ACCESS RV
 def custom_commands()
 end
 
@@ -24,10 +24,9 @@ global deffct int do_custom_command (custom_cmd_data :in, cmd_id :in)
          UNSCREW()
       default
          error_code = 2
-         return error_code
    endswitch
    
-   set_cmd_id_done(cmd_id)
+   send_cmd_result(cmd_id, error_code)
    
    return error_code
 endfct
@@ -37,8 +36,7 @@ def home_all()
 end
 
 def custom_command_1()
-  $OUT[51]=TRUE
-  WAIT SEC 1
-  $OUT[51]=FALSE
+   $OUT[51]=TRUE
+   WAIT SEC 1
+   $OUT[51]=FALSE
 end
-
