@@ -19,6 +19,7 @@
 
 #include "kuka_eki_motion_primitives_hw_interface/motion_primitives_kuka_driver.hpp"
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 namespace kuka_eki_motion_primitives_hw_interface
 {
@@ -42,6 +43,9 @@ hardware_interface::CallbackReturn MotionPrimitivesKukaDriver::on_init(
   hw_joint_pos_states_.resize(12, std::numeric_limits<double>::quiet_NaN());
   hw_joint_vel_states_.resize(12, std::numeric_limits<double>::quiet_NaN());
   hw_joint_eff_states_.resize(12, std::numeric_limits<double>::quiet_NaN());
+
+  // TCP pose state interfaces (x, y, z, qx, qy, qz, qw)
+  hw_tcp_pose_states_.resize(7, std::numeric_limits<double>::quiet_NaN());
 
   // State interfaces for the motion_primitive_forward_controller
   hw_mo_prim_states_.resize(2, std::numeric_limits<double>::quiet_NaN());     // execution_status, ready_for_new_primitive
@@ -115,6 +119,15 @@ std::vector<hardware_interface::StateInterface> MotionPrimitivesKukaDriver::expo
   // State interfaces for the motion_primitive_forward_controller
   state_interfaces.emplace_back(hardware_interface::StateInterface("motion_primitive", "execution_status", &hw_mo_prim_states_[0]));
   state_interfaces.emplace_back(hardware_interface::StateInterface("motion_primitive", "ready_for_new_primitive", &hw_mo_prim_states_[1]));
+
+  // State interfaces for the current TCP pose (for PoseBroadcaster, ...)
+  state_interfaces.emplace_back(hardware_interface::StateInterface("pos_act", "position.x", &hw_tcp_pose_states_[0]));
+  state_interfaces.emplace_back(hardware_interface::StateInterface("pos_act", "position.y", &hw_tcp_pose_states_[1]));
+  state_interfaces.emplace_back(hardware_interface::StateInterface("pos_act", "position.z", &hw_tcp_pose_states_[2]));
+  state_interfaces.emplace_back(hardware_interface::StateInterface("pos_act", "orientation.x", &hw_tcp_pose_states_[3]));
+  state_interfaces.emplace_back(hardware_interface::StateInterface("pos_act", "orientation.y", &hw_tcp_pose_states_[4]));
+  state_interfaces.emplace_back(hardware_interface::StateInterface("pos_act", "orientation.z", &hw_tcp_pose_states_[5]));
+  state_interfaces.emplace_back(hardware_interface::StateInterface("pos_act", "orientation.w", &hw_tcp_pose_states_[6]));
 
   return state_interfaces;
 }
@@ -267,6 +280,18 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::read(
   hw_joint_eff_states_[3] = torque.a4;
   hw_joint_eff_states_[4] = torque.a5;
   hw_joint_eff_states_[5] = torque.a6;
+
+  const rbt::PoseCartesian& tcp_pose = robot_state.position_cartesian;
+  constexpr double mm_to_m = 1.0 / 1000.0;
+  hw_tcp_pose_states_[0] = tcp_pose.x * mm_to_m;
+  hw_tcp_pose_states_[1] = tcp_pose.y * mm_to_m;
+  hw_tcp_pose_states_[2] = tcp_pose.z * mm_to_m;
+  tf2::Quaternion tcp_orientation;
+  tcp_orientation.setRPY(tcp_pose.c * deg_to_rad, tcp_pose.b * deg_to_rad, tcp_pose.a * deg_to_rad);
+  hw_tcp_pose_states_[3] = tcp_orientation.x();
+  hw_tcp_pose_states_[4] = tcp_orientation.y();
+  hw_tcp_pose_states_[5] = tcp_orientation.z();
+  hw_tcp_pose_states_[6] = tcp_orientation.w();
   
   if(completion_pending_ && !robot_.is_active()) // Motion Primitive or Sequence done
   {

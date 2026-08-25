@@ -153,12 +153,7 @@ def send_meta_status()
    status = eki_setreal("META_EKI", "RobotState/Position/ExtAxis/@E5", $axis_act_meas.e5)
    status = eki_setreal("META_EKI", "RobotState/Position/ExtAxis/@E6", $axis_act_meas.e6)
    ; Cartesian position
-   status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@X", $pos_act.x)
-   status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@Y", $pos_act.y)
-   status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@Z", $pos_act.z)
-   status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@A", $pos_act.a)
-   status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@B", $pos_act.b)
-   status = eki_setreal("META_EKI", "RobotState/Position/Cartesian/@C", $pos_act.c)
+   status = eki_setframe("META_EKI", "RobotState/Position/Cartesian", $BASE : $pos_act_mes)
    ; Velocity
    status = eki_setreal("META_EKI", "RobotState/Velocity/@A1", $vel_axis_act[1] * $vel_axis_ma[1] / 100.0)
    status = eki_setreal("META_EKI", "RobotState/Velocity/@A2", $vel_axis_act[2] * $vel_axis_ma[2] / 100.0)
