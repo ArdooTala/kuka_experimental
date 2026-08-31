@@ -356,6 +356,15 @@ hardware_interface::return_type MotionPrimitivesKukaDriver::write(
         build_motion_sequence_ = false; // the tail of write() sends the collected batch
         break;
       }
+      case static_cast<uint8_t>(MoprimMotionHelperType::CARTESIAN_PTP): {   // PTP Cartesian
+        RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "PTP Cartesian command received");
+        if(!add_cartesian_ptp_cmd()) {
+          RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Failed to add PTP_CARTESIAN command");
+          robot_error_ = true;
+          return hardware_interface::return_type::ERROR;
+        }
+        break;
+      }
       case MoprimMotionType::LINEAR_JOINT: { // MoveJ/ PTP
         RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "LINEAR_JOINT command received");
         if(!add_linear_joint_cmd()) {
@@ -453,6 +462,40 @@ bool MotionPrimitivesKukaDriver::add_linear_joint_cmd()
         joints[0], joints[1], joints[2], joints[3], joints[4], joints[5],
         command.target_ext_joints.e1, command.target_ext_joints.e2, command.target_ext_joints.e3,
         command.target_ext_joints.e4, command.target_ext_joints.e5, command.target_ext_joints.e6,
+        command.velocity, command.acceleration, command.blending);
+  robot_.perform(command);
+  return true;
+}
+
+bool MotionPrimitivesKukaDriver::add_cartesian_ptp_cmd()
+{
+  // Check if pose values (position and quaternion) are valid
+  for (int i = 0; i < 7; ++i) {
+    if (std::isnan(hw_mo_prim_commands_pos_[i])) {
+        RCLCPP_ERROR(rclcpp::get_logger("MotionPrimitivesKukaDriver"), "Invalid motion command: pose contains NaN values");
+        return false;
+    }
+  }
+  double a, b, c;
+  quaternionToKukaABC(hw_mo_prim_commands_pos_[3], hw_mo_prim_commands_pos_[4], hw_mo_prim_commands_pos_[5], hw_mo_prim_commands_pos_[6], a, b, c);
+
+  std::vector<double> pose = {
+    hw_mo_prim_commands_pos_[0] * 1000.0, // from m to mm
+    hw_mo_prim_commands_pos_[1] * 1000.0,
+    hw_mo_prim_commands_pos_[2] * 1000.0,
+    a, b, c};
+
+  rbt::MoveCommand command;
+  command = rbt::MoveCommand(rbt::PoseCartesian(pose[0], pose[1], pose[2], pose[3], pose[4], pose[5]), false);
+  add_ext_axes_to_command(command);
+  add_vel_and_acc_to_command(command);
+  add_blending_to_command(command);
+  add_base_and_tool_to_command(command);
+  RCLCPP_INFO(rclcpp::get_logger("MotionPrimitivesKukaDriver"),
+        "Adding PTP_CARTESIAN with pose: [%f, %f, %f, %f, %f, %f]"
+        "base: %d, tool: %d, velocity: %f, acceleration: %f, blending: %f",
+        pose[0], pose[1], pose[2], pose[3], pose[4], pose[5],
+        command.base_index, command.tool_index,
         command.velocity, command.acceleration, command.blending);
   robot_.perform(command);
   return true;

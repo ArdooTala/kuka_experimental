@@ -95,6 +95,7 @@ private:
 
   std::atomic_bool build_motion_sequence_{false};   // flag to put all following primitives into a motion sequence instead of sending single primitives
   bool add_linear_joint_cmd();
+  bool add_cartesian_ptp_cmd();
   bool add_linear_cartesian_cmd();
   bool add_circular_cartesian_cmd();
   bool add_custom_cmd();
